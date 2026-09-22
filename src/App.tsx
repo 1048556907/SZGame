@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import GameGrid from './components/GameGrid'
 import GroupManager from './components/GroupManager'
@@ -10,9 +10,94 @@ import type { Game, Group, AppSettings } from './types'
 
 type View = 'home' | 'groups' | 'settings'
 
+interface ConfirmState {
+  open: boolean
+  title: string
+  message: string
+  confirmText: string
+  danger?: boolean
+  onConfirm: (() => void) | null
+}
+
+/** 全局确认弹窗 — 替代浏览器原生 confirm()，避免阻塞主线程导致 DndContext PointerSensor 卡死 */
+function ConfirmDialog({ state, onClose }: { state: ConfirmState; onClose: () => void }) {
+  if (!state.open) return null
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}
+    onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        background: 'var(--surface-1)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', minWidth: 340, maxWidth: 420,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.5)'
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{state.title}</div>
+        <div style={{
+          fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7,
+          whiteSpace: 'pre-wrap', marginBottom: 20
+        }}>{state.message}</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{
+            height: 32, padding: '0 16px', borderRadius: 6,
+            border: '1px solid var(--border-strong)', background: 'transparent',
+            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12
+          }}>取消</button>
+          <button onClick={() => { state.onConfirm?.(); onClose() }} style={{
+            height: 32, padding: '0 16px', borderRadius: 6, border: 'none',
+            background: state.danger ? 'var(--danger)' : 'var(--accent)',
+            color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600
+          }}>{state.confirmText}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 全局 confirm hook — 替代原生 window.confirm，返回 Promise<boolean> */
+function useConfirm() {
+  const [state, setState] = useState<ConfirmState>({
+    open: false, title: '', message: '', confirmText: '确定',
+    danger: false, onConfirm: null
+  })
+  const resolverRef = useRef<((ok: boolean) => void) | null>(null)
+
+  const confirm = useCallback((title: string, message: string, opts?: { confirmText?: string; danger?: boolean }) => {
+    return new Promise<boolean>((resolve) => {
+      resolverRef.current = resolve
+      setState({
+        open: true, title, message,
+        confirmText: opts?.confirmText ?? '确定',
+        danger: opts?.danger ?? false,
+        onConfirm: null // 不使用 onConfirm，用 resolver
+      })
+    })
+  }, [])
+
+  const handleClose = useCallback(() => {
+    const r = resolverRef.current
+    resolverRef.current = null
+    setState(s => ({ ...s, open: false }))
+    r?.(false)
+  }, [])
+
+  const handleConfirm = useCallback(() => {
+    const r = resolverRef.current
+    resolverRef.current = null
+    setState(s => ({ ...s, open: false }))
+    r?.(true)
+  }, [])
+
+  return { confirm, state, handleClose, handleConfirm }
+}
+
 /** 内层 —— 使用 useToast 必须在 Provider 里面 */
 function AppInner() {
   const toast = useToast()
+  const { confirm, state: confirmState, handleClose: closeConfirm, handleConfirm: doConfirm } = useConfirm()
   const [view, setView] = useState<View>('home')
   const [currentGroup, setCurrentGroup] = useState<number | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -103,7 +188,7 @@ function AppInner() {
 
   // 删除游戏
   const handleDeleteGame = async (g: Game) => {
-    if (!confirm(`确定要删除「${g.name}」吗？`)) return
+    if (!(await confirm('删除游戏', `确定要删除「${g.name}」吗？`, { confirmText: '删除', danger: true }))) return
     await window.electronAPI?.gamesDelete(g.id)
     setSelectedGame(null)
     refresh()
@@ -173,6 +258,7 @@ function AppInner() {
               groups={groups}
               games={games}
               onRefresh={refresh}
+              onConfirm={confirm}
             />
           )}
           {view === 'settings' && (
@@ -207,6 +293,41 @@ function AppInner() {
         onClose={closeForm}
         onSaved={() => { refresh(); closeDrawer() }}
       />
+
+      {/* 全局确认弹窗 */}
+      {confirmState.open && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) closeConfirm() }}
+        >
+          <div style={{
+            background: 'var(--surface-1)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '22px 26px', minWidth: 340, maxWidth: 420,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{confirmState.title}</div>
+            <div style={{
+              fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7,
+              whiteSpace: 'pre-wrap', marginBottom: 20
+            }}>{confirmState.message}</div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={closeConfirm} style={{
+                height: 32, padding: '0 16px', borderRadius: 6,
+                border: '1px solid var(--border-strong)', background: 'transparent',
+                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12
+              }}>取消</button>
+              <button onClick={doConfirm} style={{
+                height: 32, padding: '0 16px', borderRadius: 6, border: 'none',
+                background: confirmState.danger ? 'var(--danger)' : 'var(--accent)',
+                color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600
+              }}>{confirmState.confirmText}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

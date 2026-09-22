@@ -13,6 +13,7 @@ interface Props {
   games: Game[]
   groups: Group[]
   onRefresh?: () => void
+  onConfirm?: (title: string, message: string, opts?: { confirmText?: string; danger?: boolean }) => Promise<boolean>
 }
 
 const DEFAULT_ICON = '../images/default_group.png'
@@ -22,7 +23,7 @@ function iconSrc(group: Group): string {
 }
 
 /** 收藏夹管理页 — CRUD + 图标 + 拖拽排序 + 安全删除 */
-export default function GroupManager({ games, groups, onRefresh }: Props) {
+export default function GroupManager({ games, groups, onRefresh, onConfirm }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
   const [editIcon, setEditIcon] = useState<string | null>(null)
@@ -62,10 +63,14 @@ export default function GroupManager({ games, groups, onRefresh }: Props) {
 
   const handleDelete = async (g: Group) => {
     const count = gamesByGroup(g.id).length
-    const msg = count > 0
+    const title = count > 0 ? '删除收藏夹' : '删除收藏夹'
+    const message = count > 0
       ? `收藏夹「${g.name}」下有 ${count} 款游戏。\n\n删除后这些游戏将自动归入「全部」（无分组）。\n\n确定要删除收藏夹吗？`
       : `确定要删除收藏夹「${g.name}」吗？`
-    if (!confirm(msg)) return
+    const ok = onConfirm
+      ? await onConfirm(title, message, { confirmText: '删除', danger: true })
+      : window.confirm(message) // fallback
+    if (!ok) return
     await window.electronAPI?.groupsDelete(g.id)
     onRefresh?.()
   }
@@ -153,7 +158,7 @@ export default function GroupManager({ games, groups, onRefresh }: Props) {
         }}>
           还没有任何收藏夹 — 点击「＋ 新建收藏夹」开始
         </div>
-      ) : (
+      ) : groups.length > 0 ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={groups.map(g => g.id)} strategy={verticalListSortingStrategy}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -177,7 +182,7 @@ export default function GroupManager({ games, groups, onRefresh }: Props) {
             </div>
           </SortableContext>
         </DndContext>
-      )}
+      ) : null}
     </div>
   )
 }

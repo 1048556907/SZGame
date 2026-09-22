@@ -39,6 +39,11 @@ export default function Sidebar({
 
   const isHomeActive = currentGroup === 'all' && view === 'home'
 
+  // 拖拽只在 home view 且有 groups 时启用，避免 DndContext 在其他 view
+  // （如收藏夹管理页）因全局 re-render 导致 PointerSensor 卡死 active 状态，
+  // pointercapture 拦截所有 pointer 事件 → input 无法聚焦/输入
+  const enableDrag = view === 'home' && groups.length > 0
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const handleDragEnd = (e: DragEndEvent) => {
@@ -79,20 +84,37 @@ export default function Sidebar({
           <span className="sb-count">{countByGroup('all')}</span>
         </div>
 
-        {/* 分组 — 可拖拽 */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={groups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            {groups.map(g => (
-              <SortableSidebarGroup
-                key={g.id}
-                group={g}
-                count={countByGroup(g.id)}
-                active={view === 'home' && currentGroup === g.id}
-                onClick={() => onViewChange('home', g.id)}
+        {/* 分组 — 可拖拽（仅 home view 时挂载 DndContext）*/}
+        {enableDrag ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={groups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+              {groups.map(g => (
+                <SortableSidebarGroup
+                  key={g.id}
+                  group={g}
+                  count={countByGroup(g.id)}
+                  active={view === 'home' && currentGroup === g.id}
+                  onClick={() => onViewChange('home', g.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          groups.map(g => (
+            <div
+              key={g.id}
+              className={`sb-item ${view === 'home' && currentGroup === g.id ? 'active' : ''}`}
+              onClick={() => onViewChange('home', g.id)}
+            >
+              <img src={g.icon_image ? `szgame://${g.icon_image}` : '../images/default_group.png'} alt=""
+                style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flexShrink: 0,
+                  filter: view === 'home' && currentGroup === g.id ? 'none' : 'brightness(0.85)' }}
               />
-            ))}
-          </SortableContext>
-        </DndContext>
+              <span className="sb-label">{g.name}</span>
+              <span className="sb-count">{countByGroup(g.id)}</span>
+            </div>
+          ))
+        )}
 
         {showCreateInput ? (
           <div style={{ padding: '6px 8px 6px 8px' }}>

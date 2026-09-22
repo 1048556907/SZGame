@@ -55,15 +55,37 @@ html, body, #root {
   font-family: "DM Sans", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
-  user-select: none;
+  color: var(--text-primary);
   margin: 0;
   padding: 0;
 }
 
-/* 输入框必须可选中，否则 IME 中文输入法会卡住 */
-input, textarea, [contenteditable="true"] {
+/* 输入框显式覆盖：颜色、可选中、IME 友好 */
+input, textarea, select, [contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;
+  pointer-events: auto;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+/* 标题栏 / 导航项 / 按钮 — 禁用文字选中（防止拖拽/误选）*/
+.titlebar,
+.sidebar,
+button,
+[role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* sidebar 内的 input/textarea 必须覆盖回可输入状态 */
+.sidebar input,
+.sidebar textarea,
+.sidebar select {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -webkit-user-drag: auto !important;
 }
 
 /* ============================================================
