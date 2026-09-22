@@ -6,6 +6,21 @@ import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, protocol,
 import path from 'node:path'
 import fs from 'node:fs'
 
+// —— 必须在 app.whenReady 之前注册，否则 protocol.handle 的自定义协议无法被 <img src> / fetch 加载 ——
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'szgame',
+    privileges: {
+      standard: true,       // 让 szgame:// 像 http:// 一样解析
+      secure: true,         // 标记为安全协议，允许加载敏感资源
+      supportFetchAPI: true,// 支持 fetch() API
+      bypassCSP: true,      // 绕过 Content-Security-Policy（否则 <img src="szgame://..."> 会被 CSP 拒）
+      corsEnabled: false,
+      stream: true          // 允许 stream Response
+    }
+  }
+])
+
 import { initDatabase, getSetting, setSetting, getAllSettings,
   listGroups, createGroup, renameGroup, deleteGroup, reorderGroups, updateGroup,
   listGames, createGame, updateGame, deleteGame, reorderGames, getGame,
