@@ -121,19 +121,23 @@ export default function Sidebar({
             <input
               autoFocus
               type="text"
-              placeholder="收藏夹名称"
+              placeholder="收藏夹名称（≤9字）"
               value={newGroupName}
+              maxLength={9}
               onChange={e => setNewGroupName(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   const name = newGroupName.trim()
-                  if (name) { onCreateGroup?.(name); setNewGroupName('') }
+                  if (name && name.length <= 9) { onCreateGroup?.(name); setNewGroupName('') }
+                  else if (name.length > 9) { alert('收藏夹名称不能超过 9 个字符') }
                   setShowCreateInput(false)
                 }
                 if (e.key === 'Escape') { setShowCreateInput(false); setNewGroupName('') }
               }}
               onBlur={() => {
-                if (newGroupName.trim()) { onCreateGroup?.(newGroupName.trim()); setNewGroupName('') }
+                const name = newGroupName.trim()
+                if (name && name.length <= 9) { onCreateGroup?.(name); setNewGroupName('') }
+                else if (name.length > 9) { alert('收藏夹名称不能超过 9 个字符') }
                 setShowCreateInput(false)
               }}
               style={{

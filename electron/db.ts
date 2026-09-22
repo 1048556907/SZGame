@@ -56,6 +56,31 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('window.close.behavior', 'minimize-to-tray');
 `
 
+// 首次启动时插入默认收藏夹（可修改/删除）
+const DEFAULT_GROUPS = [
+  { name: '角色扮演', sort_order: 0 },
+  { name: '动作冒险', sort_order: 1 },
+  { name: '休闲益智', sort_order: 2 },
+  { name: '枪战射击', sort_order: 3 },
+  { name: '模拟经营', sort_order: 4 },
+  { name: '辅助工具', sort_order: 5 },
+]
+
+function ensureDefaultGroups(): void {
+  const existing = getDB().exec('SELECT name FROM groups')
+  const existingNames = new Set((existing[0]?.values ?? []).map((r: any[]) => r[0] as string))
+  let insertOrder = existingNames.size
+  for (const g of DEFAULT_GROUPS) {
+    if (!existingNames.has(g.name)) {
+      getDB().run(
+        'INSERT INTO groups (name, icon_image, sort_order) VALUES (?, NULL, ?)',
+        [g.name, insertOrder++]
+      )
+      console.info(`[db] ensureDefaultGroups: inserted "${g.name}"`)
+    }
+  }
+}
+
 /** 启动时清理历史遗留的种子示例游戏（Counter-Strike 2 / 艾尔登法环 / DOTA 2） */
 function purgeLegacySeedGames(): void {
   const seedNames = ['Counter-Strike 2', '艾尔登法环', 'DOTA 2']
@@ -99,6 +124,9 @@ export async function initDatabase(userDataDir: string): Promise<void> {
 
   // 写入默认 settings 配置（窗口行为等）
   db.run(DEFAULT_SETTINGS_SQL)
+
+  // 插入默认收藏夹（角色扮演/动作冒险/休闲益智/枪战射击/模拟经营/辅助工具）
+  ensureDefaultGroups()
 
   // 清理历史遗留的种子示例游戏（彻底删除 SEED_SQL 插入的 Counter-Strike 2 / 艾尔登法环 / DOTA 2）
   purgeLegacySeedGames()

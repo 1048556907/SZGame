@@ -45,6 +45,7 @@ export default function GroupManager({ games, groups, onRefresh, onConfirm }: Pr
   const handleCreate = async () => {
     const name = newName.trim()
     if (!name) return
+    if (name.length > 9) { alert('收藏夹名称不能超过 9 个字符'); return }
     await window.electronAPI?.groupsCreate(name, newIcon)
     setNewName(''); setNewIcon(null); setCreating(false)
     onRefresh?.()
@@ -57,6 +58,7 @@ export default function GroupManager({ games, groups, onRefresh, onConfirm }: Pr
     if (editingId === null) return
     const name = editValue.trim()
     if (!name) { setEditingId(null); return }
+    if (name.length > 9) { alert('收藏夹名称不能超过 9 个字符'); return }
     await window.electronAPI?.groupsUpdate(editingId, name, editIcon)
     setEditingId(null); onRefresh?.()
   }
@@ -139,8 +141,9 @@ export default function GroupManager({ games, groups, onRefresh, onConfirm }: Pr
           )}
           <input
             ref={createNameInputRef}
-            type="text" placeholder="输入收藏夹名称..."
+            type="text" placeholder="输入收藏夹名称（≤9字）..."
             value={newName}
+            maxLength={9}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setNewName(''); setNewIcon(null) } }}
             style={inputStyle()}
@@ -263,6 +266,7 @@ function SortableGroupCard({
               <input
                 ref={editInputRef}
                 value={editValue}
+                maxLength={9}
                 onChange={e => onEditValueChange(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit() }}
                 style={inputStyle()}
@@ -311,9 +315,10 @@ const addBtnStyle: React.CSSProperties = {
 }
 
 const editDelIconBtn: React.CSSProperties = {
-  padding: 0, border: 'none', background: 'transparent',
+  padding: 5, border: 'none', background: 'transparent',   // padding+5px → 点击区域放大
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  height: '1em', width: 'auto', lineHeight: 1
+  height: 26, width: 26, borderRadius: 6,                // 按钮本体 26×26，原 16px（~1em）+5×2 padding
+  lineHeight: 1
 }
 
 const clearIconBtn: React.CSSProperties = {
