@@ -58,19 +58,12 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
   }
 
   async function pick(c: Candidate, idx: number) {
-    const api = window.electronAPI
-    if (!api) return
     setPickingIdx(idx)
     try {
-      const r = await api.remoteCoverDownload(c.imageUrl)
-      if (r.ok && r.relativePath) {
-        onPick(r.relativePath)
-        onClose()
-      } else {
-        setError(r.error || '下载失败')
-      }
-    } catch (e: any) {
-      setError(e?.message || '下载错误')
+      // 混合方案：直接把 Steam CDN URL 存进 DB，前端用浏览器原生加载
+      // 不再走 downloadCover → 本地文件 → protocol 链（避免二进制损坏风险）
+      onPick(c.imageUrl)
+      onClose()
     } finally {
       setPickingIdx(null)
     }

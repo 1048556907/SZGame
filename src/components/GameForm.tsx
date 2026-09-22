@@ -201,9 +201,13 @@ export default function GameForm({
             >
               {form.cover_image ? (
                 <img
-                  src={`szgame://${form.cover_image}`}
+                  src={form.cover_image.startsWith('http')
+                    ? form.cover_image
+                    : `szgame://${form.cover_image}`}
                   alt=""
+                  referrerPolicy="no-referrer"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                 />
               ) : (
                 <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>

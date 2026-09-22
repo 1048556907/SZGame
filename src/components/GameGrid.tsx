@@ -104,7 +104,11 @@ function GameCard({ game, onOpen, onLaunch }: {
   game: Game; onOpen: () => void; onLaunch: () => void
 }) {
   const [hover, setHover] = useState(false)
-  const coverUrl = game.cover_image ? `szgame://${game.cover_image}` : null
+  const coverUrl = game.cover_image
+    ? game.cover_image.startsWith('http')
+      ? game.cover_image
+      : `szgame://${game.cover_image}`
+    : null
 
   return (
     <div
@@ -127,7 +131,8 @@ function GameCard({ game, onOpen, onLaunch }: {
         position: 'relative', overflow: 'hidden'
       }}>
         {coverUrl ? (
-          <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          <img src={coverUrl} alt="" referrerPolicy="no-referrer"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
         ) : (
           <img src="../images/game.png" alt="" style={{ width: 42, height: 42, opacity: 0.28 }} />
