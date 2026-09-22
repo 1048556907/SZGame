@@ -112,10 +112,17 @@ function httpsGetBinary(url: string, timeoutMs = 30000): Promise<Buffer> {
 /** HEAD 请求探测 URL 是否存在（不下载 body，省带宽） */
 function httpsHead(url: string, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
-    const client = url.startsWith('https') ? https : http
-    const req = client.request({ method: 'HEAD', url, headers: STEAM_HEADERS, timeout: timeoutMs }, (res) => {
+    const u = new URL(url)
+    const client = u.protocol === 'https:' ? https : http
+    const req = client.request({
+      method: 'HEAD',
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      headers: STEAM_HEADERS,
+      timeout: timeoutMs
+    }, (res) => {
       const code = res.statusCode ?? 0
-      // 必须消费掉响应以防连接泄漏
       res.resume()
       resolve(code >= 200 && code < 400)
     })
