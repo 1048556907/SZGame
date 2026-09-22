@@ -322,6 +322,9 @@ app.whenReady().then(async () => {
   initCoverManager(userDataDir)
   initRemoteCover(userDataDir)
 
+  // 启动时清理旧 exe 遗留的 UTF-8 损坏封面
+  purgeCorruptedCovers(userDataDir)
+
   // 注册自定义协议 szgame://<relativePath>  →  userDataDir/covers/<relativePath>
   protocol.handle('szgame', (request) => {
     try {
@@ -364,6 +367,49 @@ function mimeByExt(ext: string): string {
     case '.gif':  return 'image/gif'
     case '.bmp':  return 'image/bmp'
     default:      return 'application/octet-stream'
+  }
+}
+
+/** 校验文件是否为合法图片（magic bytes） */
+function isLikelyImage(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, 'r')
+    const buf = Buffer.alloc(16)
+    fs.readSync(fd, buf, 0, 16, 0)
+    fs.closeSync(fd)
+    // JPEG: FF D8 FF ..
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true
+    // WebP: RIFF .... WEBP
+    if (buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+        buf.subarray(8, 12).toString('ascii') === 'WEBP') return true
+    // GIF: 47 49 46 38
+    if (buf.subarray(0, 4).toString('ascii') === 'GIF8') return true
+    return false
+  } catch {
+    return false
+  }
+}
+
+/** 启动时自动清理 covers/ + group-icons/ 目录下被 UTF-8 损坏的图片文件 */
+function purgeCorruptedCovers(userDataDir: string): void {
+  const dirs = ['covers', 'group-icons']
+  for (const dir of dirs) {
+    const fullDir = path.join(userDataDir, dir)
+    if (!fs.existsSync(fullDir)) continue
+    const files = fs.readdirSync(fullDir)
+    for (const f of files) {
+      const ext = path.extname(f).toLowerCase()
+      if (!['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].includes(ext)) continue
+      const filePath = path.join(fullDir, f)
+      if (!isLikelyImage(filePath)) {
+        try {
+          fs.unlinkSync(filePath)
+          console.warn(`[purge] deleted corrupted image: ${dir}/${f}`)
+        } catch { /* ignore */ }
+      }
+    }
   }
 }
 
