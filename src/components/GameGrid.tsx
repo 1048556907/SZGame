@@ -105,9 +105,11 @@ function GameCard({ game, onOpen, onLaunch }: {
 }) {
   const [hover, setHover] = useState(false)
   const coverUrl = game.cover_image
-    ? game.cover_image.startsWith('http')
-      ? game.cover_image
-      : `szgame://${game.cover_image}`
+    ? game.cover_image.startsWith('data:')
+      ? game.cover_image                                              // base64 data URI（最稳方案）
+      : game.cover_image.startsWith('http')
+        ? game.cover_image                                            // 历史遗留 Steam CDN URL
+        : `szgame://${game.cover_image}`                              // 历史遗留本地文件路径
     : null
 
   return (

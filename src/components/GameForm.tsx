@@ -82,10 +82,11 @@ export default function GameForm({
     if (!api) return
     const r = await api.selectFile([{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }])
     if (r.canceled || !r.filePaths[0]) return
-    const src = r.filePaths[0]
-    // 保存到 covers/ 目录，拿到 relativePath
-    const saved = await api.coverSaveFromPath(src)
-    update('cover_image', saved.relativePath)
+    // 本地文件也直接转 base64 data URI（与远程封面统一格式）
+    const b = await api.fileToBase64(r.filePaths[0])
+    if (b.ok && b.dataUri) {
+      update('cover_image', b.dataUri)
+    }
   }
 
   /** 选择 EXE / 脚本文件 */
@@ -201,9 +202,13 @@ export default function GameForm({
             >
               {form.cover_image ? (
                 <img
-                  src={form.cover_image.startsWith('http')
-                    ? form.cover_image
-                    : `szgame://${form.cover_image}`}
+                  src={
+                    form.cover_image.startsWith('data:')
+                      ? form.cover_image                              // base64 data URI（远程/本地选图均为此格式）
+                      : form.cover_image.startsWith('http')
+                        ? form.cover_image                          // 历史遗留 Steam CDN URL
+                        : `szgame://${form.cover_image}`            // 历史遗留本地文件路径
+                  }
                   alt=""
                   referrerPolicy="no-referrer"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}

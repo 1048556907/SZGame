@@ -48,41 +48,30 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `
 
-const SEED_SQL = `
-INSERT OR IGNORE INTO groups (id, name, sort_order) VALUES
-  (1, '射击竞技', 0),
-  (2, '角色扮演', 1),
-  (3, '策略经营', 2);
-
+// 历史种子数据 —— 彻底删除（每次启动不插入任何示例游戏）
+// 保留原 groups/settings 默认值写入逻辑（用户配置初始化）
+const DEFAULT_SETTINGS_SQL = `
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('window.minimize.behavior', 'tray'),
   ('window.close.behavior', 'minimize-to-tray');
-
-INSERT OR IGNORE INTO games (name, launch_path, launch_type, launch_args, group_id, sort_order) VALUES
-  ('Counter-Strike 2', 'steam://rungameid/730', 'url', '', 1, 0),
-  ('艾尔登法环', 'steam://rungameid/1245620', 'url', '', 2, 0),
-  ('DOTA 2', 'steam://rungameid/570', 'url', '', 3, 0);
 `
 
-/** 去重已叠加的重复种子游戏（每个 seed 游戏名只保留最早 id） */
-function dedupSeedGames(): void {
+/** 启动时清理历史遗留的种子示例游戏（Counter-Strike 2 / 艾尔登法环 / DOTA 2） */
+function purgeLegacySeedGames(): void {
   const seedNames = ['Counter-Strike 2', '艾尔登法环', 'DOTA 2']
-  let deleted = 0
+  let total = 0
   for (const name of seedNames) {
-    const rows = getDB().exec(`SELECT id FROM games WHERE name = ? ORDER BY id ASC`, [name])
-    const ids = rows[0]?.values.map((r: any[]) => r[0] as number) ?? []
-    if (ids.length > 1) {
-      const removeIds = ids.slice(1)
-      for (const id of removeIds) {
-        getDB().run('DELETE FROM games WHERE id = ?', [id])
-        deleted++
-      }
+    const stmt = getDB().prepare('DELETE FROM games WHERE name = ? AND launch_path LIKE ?')
+    stmt.bind([name, 'steam://rungameid/%'])
+    stmt.step()
+    const del = (stmt as any).getRowsModified?.() ?? 0
+    stmt.free()
+    if (del > 0) {
+      total += del
+      console.warn(`[db] purgeSeedGames: deleted ${del} row(s) of "${name}"`)
     }
   }
-  if (deleted > 0) {
-    console.warn(`[db] dedupSeedGames: removed ${deleted} duplicate seed rows`)
-    save()
-  }
+  if (total > 0) save()
 }
 
 // ============================================================
@@ -108,15 +97,14 @@ export async function initDatabase(userDataDir: string): Promise<void> {
   // 建表（幂等）
   db.run(SCHEMA_SQL)
 
-  // 种子数据 —— 仅首次启动执行（避免每次启动叠加示例数据）
-  if (!getSetting('db.seeded')) {
-    db.run(SEED_SQL)
-    // 设置守卫 —— 首次种子完成后标记
-    getDB().run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ['db.seeded', '1'])
-  }
+  // 写入默认 settings 配置（窗口行为等）
+  db.run(DEFAULT_SETTINGS_SQL)
 
-  // ── 防御性清理：对可能已叠加的重复种子数据做去重（每个种子游戏只保留最早的一条）──
-  dedupSeedGames()
+  // 清理历史遗留的种子示例游戏（彻底删除 SEED_SQL 插入的 Counter-Strike 2 / 艾尔登法环 / DOTA 2）
+  purgeLegacySeedGames()
+
+  // 清理可能已残留的 db.seeded 守卫标记（因为不再有种子逻辑）
+  db.run("DELETE FROM settings WHERE key = 'db.seeded'")
 
   // ── 迁移：补齐旧版表缺失的列 ──
   ensureColumn('groups', 'icon_image', 'TEXT')

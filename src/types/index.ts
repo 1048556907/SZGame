@@ -84,6 +84,8 @@ declare global {
         error?: string
       }>
       remoteCoverDownload: (imageUrl: string) => Promise<{ ok: boolean; relativePath?: string; error?: string }>
+      remoteCoverDownloadAsBase64: (imageUrl: string) => Promise<{ ok: boolean; dataUri?: string; size?: number; error?: string }>
+      fileToBase64: (sourcePath: string) => Promise<{ ok: boolean; dataUri?: string; size?: number; error?: string }>
 
       // app control
       hideToTray: () => Promise<void>

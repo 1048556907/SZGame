@@ -27,7 +27,7 @@ import { initDatabase, getSetting, setSetting, getAllSettings,
   type GameCreateInput } from './db'
 import { launch } from './launcher'
 import { initCoverManager, saveFromPath } from './cover-manager'
-import { initRemoteCover, searchCovers, downloadCover } from './remote-cover'
+import { initRemoteCover, searchCovers, downloadCover, downloadAsBase64 } from './remote-cover'
 
 // ============================================================
 // State
@@ -251,6 +251,21 @@ ipcMain.handle('cover:searchRemote', async (_e, keyword: string) => {
 })
 ipcMain.handle('cover:downloadRemote', async (_e, imageUrl: string) => {
   return downloadCover(imageUrl)
+})
+// 远程封面 → 直接转 base64 data URI（用于 cover_image 字段存储）
+ipcMain.handle('cover:downloadAsBase64', async (_e, imageUrl: string) => {
+  return downloadAsBase64(imageUrl)
+})
+// 本地图片文件 → 转 base64 data URI
+ipcMain.handle('cover:fileToBase64', (_e, sourcePath: string) => {
+  try {
+    const buf = fs.readFileSync(sourcePath)
+    const ext = path.extname(sourcePath).toLowerCase().replace('.', '')
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg'
+    return { ok: true, dataUri: `data:${mime};base64,${buf.toString('base64')}`, size: buf.length }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || '文件读取失败' }
+  }
 })
 
 // —— Dialogs & Cover ——

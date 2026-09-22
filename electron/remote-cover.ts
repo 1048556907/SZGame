@@ -239,3 +239,19 @@ export async function downloadCover(
     return { ok: false, error: `下载失败: ${err?.message || '未知错误'}` }
   }
 }
+
+/** 远程封面图 → 直接下载并返回 base64 data URI（推荐方案，存 DB 最稳） */
+export async function downloadAsBase64(
+  imageUrl: string
+): Promise<{ ok: boolean; dataUri?: string; size?: number; error?: string }> {
+  try {
+    const buf = await httpsGetBinary(imageUrl, 30000)
+    let ext = 'jpg'
+    try { ext = new URL(imageUrl).pathname.split('.').pop()?.toLowerCase() || 'jpg' } catch { /* ignore */ }
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+    const dataUri = `data:${mime};base64,${buf.toString('base64')}`
+    return { ok: true, dataUri, size: buf.length }
+  } catch (err: any) {
+    return { ok: false, error: `下载失败: ${err?.message || '未知错误'}` }
+  }
+}
