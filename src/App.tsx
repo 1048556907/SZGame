@@ -24,7 +24,7 @@ function ConfirmDialog({ state, onClose }: { state: ConfirmState; onClose: () =>
   if (!state.open) return null
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
+      position: 'fixed', inset: 0, zIndex: 9999, borderRadius: 12,
       background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}
@@ -290,7 +290,7 @@ function AppInner() {
       {/* 全局确认弹窗 */}
       {confirmState.open && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
+          position: 'fixed', inset: 0, zIndex: 9999, borderRadius: 12,
           background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}

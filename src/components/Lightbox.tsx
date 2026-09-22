@@ -29,7 +29,7 @@ export default function Lightbox({ imageUrl, alt, onClose }: Props) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0,
+        position: 'fixed', inset: 0, borderRadius: 12,
         zIndex: 9998,
         background: 'rgba(0,0,0,0.92)',
         backdropFilter: 'blur(8px)',

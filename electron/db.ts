@@ -127,7 +127,12 @@ export async function initDatabase(userDataDir: string): Promise<void> {
   db.run(DEFAULT_SETTINGS_SQL)
 
   // 插入默认收藏夹（角色扮演/动作冒险/休闲益智/枪战射击/模拟经营/辅助工具）
-  ensureDefaultGroups()
+  // —— 仅首次启动执行一次，已存在的不会重复
+  const groupsInitialized = getSetting('db.groups.initialized')
+  if (!groupsInitialized) {
+    ensureDefaultGroups()
+    db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('db.groups.initialized', '1')")
+  }
 
   // 清理历史遗留的种子示例游戏（彻底删除 SEED_SQL 插入的 Counter-Strike 2 / 艾尔登法环 / DOTA 2）
   purgeLegacySeedGames()
