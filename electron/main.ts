@@ -230,10 +230,9 @@ ipcMain.handle('launcher:launch', (_e, gameId: number) => {
   return result
 })
 
-// —— 远程封面（RAWG）——
+// —— 远程封面（Steam）——
 ipcMain.handle('cover:searchRemote', async (_e, keyword: string) => {
-  const apiKey = decryptValueIfNeeded('rawg.api.key', getSetting('rawg.api.key'))
-  return searchCovers(keyword, apiKey ?? '')
+  return searchCovers(keyword)
 })
 ipcMain.handle('cover:downloadRemote', async (_e, imageUrl: string) => {
   return downloadCover(imageUrl)

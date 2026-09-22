@@ -142,8 +142,7 @@ function AppInner() {
       const all = await api.settingsGetAll()
       setSettings({
         window_minimize_behavior: (all['window.minimize.behavior'] as any) ?? 'tray',
-        window_close_behavior: (all['window.close.behavior'] as any) ?? 'minimize-to-tray',
-        rawg_api_key: all['rawg.api.key'] ?? ''
+        window_close_behavior: (all['window.close.behavior'] as any) ?? 'minimize-to-tray'
       })
     } catch (e) {
       toast.showError('数据加载失败，请查看控制台')

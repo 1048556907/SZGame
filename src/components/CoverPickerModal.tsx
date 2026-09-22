@@ -8,13 +8,15 @@ interface Props {
 }
 
 interface Candidate {
+  appid: number
   name: string
   imageUrl: string
-  rating: number | null
-  released: string | null
+  thumbUrl: string
+  score: number | null
+  libraryHero: string
 }
 
-/** 远程封面候选选择弹窗（RAWG） */
+/** 远程封面候选选择弹窗（Steam 商店） */
 export default function CoverPickerModal({ open, keyword, onClose, onPick }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
       if (r.ok && r.candidates) {
         setCandidates(r.candidates)
         if (r.candidates.length === 0) {
-          setError(`未找到 "${keyword}" 的封面（RAWG 对中文名支持有限，试试英文名？）`)
+          setError(`Steam 商店未找到 "${keyword}" 的匹配项`)
         }
       } else {
         setError(r.error || '搜索失败')
@@ -99,26 +101,26 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
       }}>
         {/* 头部 */}
         <div style={{
-          padding: '16px 22px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: 12
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>
-            🎨 获取封面 <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 12 }}>（来源：RAWG）</span>
+            padding: '16px 22px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 12
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>
+              🎨 获取封面 <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 12 }}>（来源：Steam 商店）</span>
+            </div>
+            <button onClick={onClose} style={{
+              width: 28, height: 28, borderRadius: 6,
+              border: 'none', background: 'transparent',
+              color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 16
+            }}>×</button>
           </div>
-          <button onClick={onClose} style={{
-            width: 28, height: 28, borderRadius: 6,
-            border: 'none', background: 'transparent',
-            color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 16
-          }}>×</button>
-        </div>
 
         {/* 内容区 */}
         <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
 
           {loading && (
-            <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-tertiary)' }}>
-              🔍 正在从 RAWG 搜索封面...
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-tertiary)' }}>
+              🔍 正在从 Steam 商店搜索候选封面...
             </div>
           )}
 
@@ -135,12 +137,12 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
           {!loading && !error && candidates.length > 0 && (
             <div style={{
               display: 'grid', gap: 14,
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))'
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'
             }}>
               {candidates.map((c, idx) => {
                 const picking = pickingIdx === idx
                 return (
-                  <div key={idx}
+                  <div key={c.appid}
                     onClick={() => !picking && pick(c, idx)}
                     style={{
                       borderRadius: 10, overflow: 'hidden', cursor: picking ? 'default' : 'pointer',
@@ -153,12 +155,15 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
                     onMouseLeave={e => { if (!picking) e.currentTarget.style.borderColor = 'var(--border)' }}
                   >
                     <div style={{
-                      aspectRatio: '16/9',
+                      aspectRatio: '460/215', // Steam library_hero 比例
                       background: '#111',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       position: 'relative'
                     }}>
-                      <img src={c.imageUrl} alt={c.name}
+                      {/* 先用 tiny_image 预览（小图），选中下载 library_hero.jpg */}
+                      <img
+                        src={c.thumbUrl || c.imageUrl}
+                        alt={c.name}
                         loading="lazy"
                         referrerPolicy="no-referrer"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -179,9 +184,8 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
                         color: 'var(--text-primary)'
                       }}>{c.name}</div>
                       <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>
-                        {c.rating != null ? `★ ${c.rating.toFixed(1)}` : ''}
-                        {c.rating != null && c.released ? ' · ' : ''}
-                        {c.released ?? ''}
+                        AppID: {c.appid}
+                        {c.score != null && c.score > 0 ? ` · Metascore ${c.score}` : ''}
                       </div>
                     </div>
                   </div>
@@ -199,7 +203,7 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
           fontSize: 11, color: 'var(--text-tertiary)'
         }}>
           <span style={{ marginRight: 'auto', alignSelf: 'center' }}>
-            💡 提示：RAWG 对中文游戏名支持有限，搜索不到时试试英文名
+            💡 支持中文关键词搜索 · 封面取自 Steam CDN · 无次数限制
           </span>
           <button onClick={onClose} style={{
             height: 32, padding: '0 16px', borderRadius: 6,
