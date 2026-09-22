@@ -121,14 +121,15 @@ function createMainWindow(): BrowserWindow {
   win.on('unmaximize', broadcastMax)
   win.on('minimize',   () => win.webContents.send('win:maximized', false))
   win.on('restore',    () => {
-    // —— workaround: transparent+frameless minimize→restore 后 WebContents 冻结 ——
-    // Chromium 已知 bug：透明无边框窗口从 minimized 恢复后渲染进程冻结
+    // —— workaround: transparent+frameless minimize→restore 后窗口尺寸变化 + WebContents 冻结 ——
+    // Chromium 已知 bug：透明无边框窗口从 minimized 恢复后，Windows 会把 bounds 重置为系统默认
+    // 必须在 restore 后强制写回固定尺寸，否则窗口会变大/变小
+    win.setBounds({ width: 1200, height: 780 }, false)
     win.show()
     win.focus()
     win.webContents.focus()
     setTimeout(() => {
       win.webContents.setFrameRate(60)
-      // 强制触发一次完整渲染循环
       win.webContents.executeJavaScript(
         'document.body.style.display="none"; requestAnimationFrame(()=>document.body.style.display="")'
       ).catch(() => {})
