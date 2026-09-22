@@ -86,8 +86,8 @@ export default function GameGrid({
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-  gap: 20
+  gridTemplateColumns: 'repeat(4, 1fr)',
+  gap: 16
 }
 
 const addBtnStyle: React.CSSProperties = {
