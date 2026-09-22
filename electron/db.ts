@@ -81,19 +81,20 @@ function ensureDefaultGroups(): void {
   }
 }
 
-/** 启动时清理历史遗留的种子示例游戏（Counter-Strike 2 / 艾尔登法环 / DOTA 2） */
+/** 启动时清理历史遗留的种子示例游戏（Counter-Strike 2 / 艾尔登法环 / DOTA 2）
+ *  —— 只清 games，不动 groups（ensureDefaultGroups 保留默认收藏夹） */
 function purgeLegacySeedGames(): void {
   const seedNames = ['Counter-Strike 2', '艾尔登法环', 'DOTA 2']
   let total = 0
   for (const name of seedNames) {
-    const stmt = getDB().prepare('DELETE FROM games WHERE name = ? AND launch_path LIKE ?')
-    stmt.bind([name, 'steam://rungameid/%'])
+    const stmt = getDB().prepare('DELETE FROM games WHERE name = ?')
+    stmt.bind([name])
     stmt.step()
     const del = (stmt as any).getRowsModified?.() ?? 0
     stmt.free()
     if (del > 0) {
       total += del
-      console.warn(`[db] purgeSeedGames: deleted ${del} row(s) of "${name}"`)
+      console.warn(`[db] purgeLegacySeedGames: deleted ${del} row(s) of "${name}"`)
     }
   }
   if (total > 0) save()

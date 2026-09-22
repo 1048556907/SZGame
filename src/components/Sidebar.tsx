@@ -179,8 +179,11 @@ function SortableSidebarGroup({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group.id })
 
+  // 只保留 y 分量 → 垂直方向拖动
+  const verticalTransform = transform ? { ...transform, x: 0 } : null
+
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(verticalTransform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     touchAction: 'none'
