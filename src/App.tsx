@@ -137,10 +137,6 @@ function AppInner() {
         <div className="tb-wincontrols">
           <div className="tb-btn" title="最小化"
             onClick={() => window.electronAPI?.winMinimize()}>—</div>
-          <div className="tb-btn" title={isMaximized ? '还原' : '最大化'}
-            onClick={() => window.electronAPI?.winToggleMaximize()}>
-            {isMaximized ? '❐' : '□'}
-          </div>
           <div className="tb-btn close" title="关闭"
             onClick={() => window.electronAPI?.winClose()}>✕</div>
         </div>
