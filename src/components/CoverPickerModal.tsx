@@ -13,7 +13,8 @@ interface Candidate {
   imageUrl: string
   thumbUrl: string
   score: number | null
-  libraryHero: string
+  priceCny: number | null
+  platforms: { windows: boolean; mac: boolean; linux: boolean }
 }
 
 /** 远程封面候选选择弹窗（Steam 商店） */
@@ -183,9 +184,31 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         color: 'var(--text-primary)'
                       }}>{c.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>
-                        AppID: {c.appid}
-                        {c.score != null && c.score > 0 ? ` · Metascore ${c.score}` : ''}
+                      <div style={{
+                        fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2,
+                        display: 'flex', alignItems: 'center', gap: 6
+                      }}>
+                        <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>#{c.appid}</span>
+                        {c.score != null && c.score > 0 && (
+                          <span style={{
+                            padding: '1px 5px', borderRadius: 3,
+                            background: c.score >= 75 ? '#4caf50' : c.score >= 50 ? '#ff9800' : '#f44336',
+                            color: '#fff', fontWeight: 700, fontSize: 9, lineHeight: 1.4
+                          }}>Metascore {c.score}</span>
+                        )}
+                        {c.priceCny != null && c.priceCny > 0 && (
+                          <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                            ¥{(c.priceCny / 100).toFixed(0)}
+                          </span>
+                        )}
+                        {c.priceCny != null && c.priceCny === 0 && (
+                          <span style={{ color: '#4caf50', fontWeight: 600 }}>免费</span>
+                        )}
+                        <span style={{ marginLeft: 'auto', opacity: 0.6, letterSpacing: 1 }}>
+                          {c.platforms.windows && '🪟'}
+                          {c.platforms.mac && '🍎'}
+                          {c.platforms.linux && '🐧'}
+                        </span>
                       </div>
                     </div>
                   </div>

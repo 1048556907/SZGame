@@ -38,12 +38,14 @@ export interface SZGameAPI {
   coverSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
   groupIconSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
 
-  // remote cover (Steam) — 无 Key，中文友好
+  // remote cover (Steam) — 无 Key，中文友好，支持 fallback 链
   remoteCoverSearch: (keyword: string) => Promise<{
     ok: boolean
+    total?: number
     candidates?: {
       appid: number; name: string; imageUrl: string; thumbUrl: string;
-      score: number | null; libraryHero: string
+      score: number | null; priceCny: number | null;
+      platforms: { windows: boolean; mac: boolean; linux: boolean }
     }[]
     error?: string
   }>
