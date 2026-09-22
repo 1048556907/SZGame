@@ -149,7 +149,7 @@ export default function GameForm({
     <>
       {/* 遮罩 */}
       <div onClick={onClose} style={{
-        position: 'absolute', inset: 0,
+        position: 'absolute', inset: 0, borderRadius: 12,
         background: 'rgba(0,0,0,0.6)',
         backdropFilter: 'blur(6px)', zIndex: 100
       }} />

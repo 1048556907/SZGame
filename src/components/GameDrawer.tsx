@@ -41,7 +41,7 @@ export default function GameDrawer({ game, groups, onClose, onLaunch, onEdit, on
       <div
         onClick={onClose}
         style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', inset: 0, borderRadius: 12,
           background: 'rgba(0,0,0,0.55)',
           backdropFilter: 'blur(4px)',
           zIndex: 50
