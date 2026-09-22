@@ -2,7 +2,7 @@
  * SZGame — Electron Main Process
  */
 
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, protocol, safeStorage } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 
@@ -12,6 +12,7 @@ import { initDatabase, getSetting, setSetting, getAllSettings,
   type GameCreateInput } from './db'
 import { launch } from './launcher'
 import { initCoverManager, saveFromPath } from './cover-manager'
+import { initRemoteCover, searchCovers, downloadCover } from './remote-cover'
 
 // ============================================================
 // State
@@ -128,10 +129,51 @@ ipcMain.handle('window:getVersion', () => {
   } catch { return 'unknown' }
 })
 
-ipcMain.handle('db:settings:get', (_e, key: string) => getSetting(key))
-ipcMain.handle('db:settings:getAll', () => getAllSettings())
+// —— 安全存储敏感设置（safeStorage 加密）——
+const SENSITIVE_KEYS = new Set(['rawg.api.key'])
+function isSensitiveKey(k: string): boolean { return SENSITIVE_KEYS.has(k) }
+
+function encryptValueIfNeeded(k: string, v: string): string {
+  if (!isSensitiveKey(k)) return v
+  if (!v) return v
+  if (v.startsWith('enc:')) return v // 已加密
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const buf = safeStorage.encryptString(v)
+      return 'enc:' + buf.toString('base64')
+    }
+  } catch { /* 降级：明文存储 */ }
+  return v
+}
+
+function decryptValueIfNeeded(k: string, v: string | null): string | null {
+  if (!isSensitiveKey(k) || !v) return v
+  if (!v.startsWith('enc:')) return v
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const raw = safeStorage.decryptString(Buffer.from(v.slice(4), 'base64'))
+      return raw
+    }
+  } catch { /* 解密失败返回原值 */ }
+  return v
+}
+
+ipcMain.handle('db:settings:get', (_e, key: string) => {
+  const v = getSetting(key)
+  return decryptValueIfNeeded(key, v)
+})
+ipcMain.handle('db:settings:getAll', () => {
+  const all = getAllSettings()
+  const result: Record<string, string> = {}
+  for (const [k, v] of Object.entries(all)) {
+    const d = decryptValueIfNeeded(k, v)
+    if (d !== null) result[k] = d
+  }
+  return result
+})
 ipcMain.handle('db:settings:set', (_e, key: string, value: string) => {
-  setSetting(key, value)
+  const toStore = encryptValueIfNeeded(key, value)
+  setSetting(key, toStore)
   // 实时生效
   if (key === 'window.minimize.behavior') minimizeBehavior = value as any
   if (key === 'window.close.behavior') closeBehavior = value as any
@@ -186,6 +228,15 @@ ipcMain.handle('launcher:launch', (_e, gameId: number) => {
     mainWindow?.minimize()
   }
   return result
+})
+
+// —— 远程封面（RAWG）——
+ipcMain.handle('cover:searchRemote', async (_e, keyword: string) => {
+  const apiKey = decryptValueIfNeeded('rawg.api.key', getSetting('rawg.api.key'))
+  return searchCovers(keyword, apiKey ?? '')
+})
+ipcMain.handle('cover:downloadRemote', async (_e, imageUrl: string) => {
+  return downloadCover(imageUrl)
 })
 
 // —— Dialogs & Cover ——
@@ -255,6 +306,7 @@ app.whenReady().then(async () => {
   // 初始化 DB
   await initDatabase(userDataDir)
   initCoverManager(userDataDir)
+  initRemoteCover(userDataDir)
 
   // 注册自定义协议 szgame://<relativePath>  →  userDataDir/covers/<relativePath>
   protocol.handle('szgame', (request) => {

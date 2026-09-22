@@ -38,6 +38,14 @@ export interface SZGameAPI {
   coverSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
   groupIconSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
 
+  // remote cover (RAWG)
+  remoteCoverSearch: (keyword: string) => Promise<{
+    ok: boolean
+    candidates?: { name: string; imageUrl: string; rating: number | null; released: string | null }[]
+    error?: string
+  }>
+  remoteCoverDownload: (imageUrl: string) => Promise<{ ok: boolean; relativePath?: string; error?: string }>
+
   // app control
   hideToTray: () => Promise<void>
   quit: () => Promise<void>
@@ -75,6 +83,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFile:        (f) => ipcRenderer.invoke('dialog:selectFile', f),
   coverSaveFromPath:      (p) => ipcRenderer.invoke('cover:saveFromPath', p),
   groupIconSaveFromPath:  (p) => ipcRenderer.invoke('groupIcon:saveFromPath', p),
+
+  remoteCoverSearch:      (kw) => ipcRenderer.invoke('cover:searchRemote', kw),
+  remoteCoverDownload:    (url) => ipcRenderer.invoke('cover:downloadRemote', url),
 
   hideToTray:        () => ipcRenderer.invoke('app:hideToTray'),
   quit:              () => ipcRenderer.invoke('app:quit'),

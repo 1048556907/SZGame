@@ -32,6 +32,7 @@ export type CloseBehavior = 'exit' | 'minimize-to-tray'
 export interface AppSettings {
   window_minimize_behavior: MinimizeBehavior
   window_close_behavior: CloseBehavior
+  rawg_api_key?: string
 }
 
 /** window.electronAPI 类型声明 — 与 electron/preload.ts 对齐 */
@@ -71,6 +72,14 @@ declare global {
       }>
       coverSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
       groupIconSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
+
+      // remote cover (RAWG)
+      remoteCoverSearch: (keyword: string) => Promise<{
+        ok: boolean
+        candidates?: { name: string; imageUrl: string; rating: number | null; released: string | null }[]
+        error?: string
+      }>
+      remoteCoverDownload: (imageUrl: string) => Promise<{ ok: boolean; relativePath?: string; error?: string }>
 
       // app control
       hideToTray: () => Promise<void>

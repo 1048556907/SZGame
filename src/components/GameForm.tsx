@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Game, Group, LaunchType } from '../types'
+import CoverPickerModal from './CoverPickerModal'
 
 interface Props {
   open: boolean
@@ -36,6 +37,7 @@ export default function GameForm({
   const [form, setForm] = useState<FormState>({ ...emptyForm })
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false)
 
   // 打开时根据 context 初始化
   useEffect(() => {
@@ -214,13 +216,30 @@ export default function GameForm({
 
           {/* 游戏名称 */}
           <FormRow label="游戏名称 *" error={errors.name}>
-            <input
-              type="text"
-              placeholder="例如：Counter-Strike 2"
-              value={form.name}
-              onChange={e => update('name', e.target.value)}
-              style={inputStyle(!!errors.name)}
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="例如：Counter-Strike 2"
+                value={form.name}
+                onChange={e => update('name', e.target.value)}
+                style={{ ...inputStyle(!!errors.name), flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={() => setCoverPickerOpen(true)}
+                disabled={!form.name.trim()}
+                title="从 RAWG 搜索封面"
+                style={{
+                  height: 36, padding: '0 14px', borderRadius: 6,
+                  border: '1px solid var(--border-strong)',
+                  background: form.name.trim() ? 'var(--surface-1)' : 'var(--surface-2)',
+                  color: form.name.trim() ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  fontSize: 12, cursor: form.name.trim() ? 'pointer' : 'not-allowed',
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                  transition: 'border-color 0.15s'
+                }}
+              >🎨 获取封面</button>
+            </div>
           </FormRow>
 
           {/* 启动类型 */}
@@ -322,6 +341,14 @@ export default function GameForm({
           </button>
         </div>
       </div>
+
+      {/* 远程封面选择弹窗 */}
+      <CoverPickerModal
+        open={coverPickerOpen}
+        keyword={form.name}
+        onClose={() => setCoverPickerOpen(false)}
+        onPick={(relativePath) => update('cover_image', relativePath)}
+      />
     </>
   )
 }

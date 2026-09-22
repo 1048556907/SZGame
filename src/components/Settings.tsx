@@ -1,4 +1,5 @@
 import type { AppSettings } from '../types'
+import { useState } from 'react'
 
 interface Props {
   version: string
@@ -10,6 +11,14 @@ export default function Settings({ version, settings, onSettingsChange }: Props)
 
   const minimizeValue = settings.window_minimize_behavior
   const closeValue = settings.window_close_behavior
+  const [rawgKeyDraft, setRawgKeyDraft] = useState(settings.rawg_api_key ?? '')
+  const [rawgSaved, setRawgSaved] = useState(false)
+
+  const handleRawgSave = () => {
+    onSettingsChange('rawg.api.key', rawgKeyDraft.trim())
+    setRawgSaved(true)
+    setTimeout(() => setRawgSaved(false), 2500)
+  }
 
   return (
     <div className="content-inner">
@@ -54,6 +63,71 @@ export default function Settings({ version, settings, onSettingsChange }: Props)
           ]}
           onChange={v => onSettingsChange('window.close.behavior', v)}
         />
+      </div>
+
+      {/* 远程封面 */}
+      <div style={{
+        background: 'var(--surface-1)', border: '1px solid var(--border)',
+        borderRadius: 14, marginBottom: 18, overflow: 'hidden'
+      }}>
+        <div style={{
+          padding: '16px 22px', borderBottom: '1px solid var(--border)',
+          fontSize: 13, fontWeight: 600
+        }}>🎨 远程封面获取（RAWG）</div>
+
+        <div style={{ padding: 22 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.6 }}>
+            在「添加游戏/编辑游戏」时，点击「🎨 获取封面」按钮从 RAWG 平台搜索并一键设置封面。
+            <br />
+            <a
+              href="https://rawg.io/apidocs"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+            >https://rawg.io/apidocs</a>
+            免费注册即可获取 API Key（速率限制 1 req/s，每分钟 200 次）。
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              placeholder="输入 RAWG API Key"
+              value={rawgKeyDraft}
+              onChange={e => setRawgKeyDraft(e.target.value)}
+              style={{
+                flex: 1, height: 36,
+                background: 'var(--surface-0)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 6, padding: '0 12px',
+                color: 'var(--text-primary)', fontSize: 13,
+                outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleRawgSave}
+              disabled={rawgKeyDraft === (settings.rawg_api_key ?? '')}
+              style={{
+                height: 36, padding: '0 18px', borderRadius: 6,
+                border: 'none',
+                background: rawgKeyDraft === (settings.rawg_api_key ?? '') ? 'var(--surface-2)' : 'var(--accent)',
+                color: rawgKeyDraft === (settings.rawg_api_key ?? '') ? 'var(--text-tertiary)' : '#fff',
+                fontSize: 12, fontWeight: 600,
+                cursor: rawgKeyDraft === (settings.rawg_api_key ?? '') ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s', whiteSpace: 'nowrap'
+              }}
+            >{rawgSaved ? '✓ 已保存' : '保存'}</button>
+          </div>
+
+          <div style={{
+            fontSize: 11, color: 'var(--text-tertiary)',
+            marginTop: 10, padding: '8px 12px',
+            background: 'var(--surface-0)',
+            borderRadius: 6,
+            border: '1px solid var(--border)'
+          }}>
+            🔒 API Key 使用 DPAPI（Windows 数据保护 API）加密存储，仅本机可解密读取。
+          </div>
+        </div>
       </div>
 
       {/* 关于 */}
