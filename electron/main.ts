@@ -113,14 +113,28 @@ function createMainWindow(): BrowserWindow {
 
   win.on('closed', () => { mainWindow = null })
 
-  // —— maximize 状态广播 ——
+  // —— maximize 状态广播 + restore 冻结 workaround ——
   const broadcastMax = () => {
     win.webContents.send('win:maximized', win.isMaximized())
   }
   win.on('maximize',   broadcastMax)
   win.on('unmaximize', broadcastMax)
   win.on('minimize',   () => win.webContents.send('win:maximized', false))
-  win.on('restore',    broadcastMax)
+  win.on('restore',    () => {
+    // —— workaround: transparent+frameless minimize→restore 后 WebContents 冻结 ——
+    // Chromium 已知 bug：透明无边框窗口从 minimized 恢复后渲染进程冻结
+    win.show()
+    win.focus()
+    win.webContents.focus()
+    setTimeout(() => {
+      win.webContents.setFrameRate(60)
+      // 强制触发一次完整渲染循环
+      win.webContents.executeJavaScript(
+        'document.body.style.display="none"; requestAnimationFrame(()=>document.body.style.display="")'
+      ).catch(() => {})
+    }, 80)
+    broadcastMax()
+  })
 
   return win
 }
