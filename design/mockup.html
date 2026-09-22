@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SZGame — 游戏管理盒子 · 设计稿</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   SZGame — Design Mockup  |  Dark + Blue Accent
+   ============================================================ */
+
+:root {
+  /* Base */
+  --sidebar-bg:        #080c12;
+  --surface-0:         #0d1219;
+  --surface-1:         #131a24;
+  --surface-2:         #1a2230;
+  --surface-3:         #232d3d;
+  --border:            rgba(255, 255, 255, 0.06);
+  --border-strong:     rgba(255, 255, 255, 0.12);
+
+  /* Accent Blue — sampled from logo.png */
+  --accent:            #2f80f6;
+  --accent-hover:      #4a93ff;
+  --accent-glow:       rgba(47, 128, 246, 0.25);
+  --accent-subtle:     rgba(47, 128, 246, 0.12);
+
+  /* Text */
+  --text-primary:      #e6edf3;
+  --text-secondary:    #8b949e;
+  --text-tertiary:     #5a6470;
+  --text-inverse:      #ffffff;
+
+  /* Status */
+  --success:           #238636;
+  --danger:            #da3633;
+  --warning:           #d29922;
+
+  /* Shadows */
+  --shadow-sm:         0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md:         0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg:         0 8px 24px rgba(0,0,0,0.5);
+  --shadow-drawer:     -8px 0 32px rgba(0,0,0,0.6);
+
+  /* Radii */
+  --radius-sm:         6px;
+  --radius-md:         10px;
+  --radius-lg:         14px;
+  --radius-xl:         20px;
+
+  /* Transitions */
+  --ease-out:          cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:       cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Window */
+  --titlebar-h:        44px;
+  --sidebar-w:         248px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #000;
+  font-family: "DM Sans", "Noto Sans SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ============================================================
+   Desktop Frame — simulating Electron window
+   ============================================================ */
+.desktop-stage {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(47, 128, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(124, 58, 237, 0.06) 0%, transparent 50%),
+    #05070b;
+  padding: 40px;
+}
+
+.app-window {
+  width: 1200px;
+  height: 780px;
+  background: var(--surface-0);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 32px 80px rgba(0,0,0,0.7),
+    0 0 120px rgba(47, 128, 246, 0.05);
+}
+
+/* ============================================================
+   Title Bar
+   ============================================================ */
+.titlebar {
+  height: var(--titlebar-h);
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px 0 20px;
+  flex-shrink: 0;
+}
+
+.tb-logo {
+  width: 22px; height: 22px;
+  margin-right: 10px;
+}
+
+.tb-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.tb-spacer { flex: 1; }
+
+.tb-wincontrols { display: flex; gap: 4px; }
+
+.tb-btn {
+  width: 32px; height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  cursor: default;
+  transition: background 0.15s, color 0.15s;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.tb-btn.close:hover { background: var(--danger); color: #fff; }
+
+.tb-btn svg { width: 12px; height: 12px; }
+
+/* ============================================================
+   Main Layout
+   ============================================================ */
+.app-body { flex: 1; display: flex; overflow: hidden; }
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* Sidebar search */
+.sb-search {
+  padding: 16px 16px 12px;
+}
+.sb-search-box {
+  position: relative;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.sb-search-box:focus-within {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.sb-search-box svg.search-icon {
+  width: 14px; height: 14px;
+  color: var(--text-tertiary);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.sb-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+.sb-search-box input::placeholder { color: var(--text-tertiary); }
+.sb-search-clear {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  display: none;
+  align-items: center; justify-content: center;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.sb-search-box.has-value .sb-search-clear { display: flex; }
+
+/* Sidebar navigation */
+.sb-nav { flex: 1; overflow-y: auto; padding: 4px 8px; }
+.sb-nav::-webkit-scrollbar { width: 6px; }
+.sb-nav::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+
+.sb-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  padding: 16px 12px 6px;
+}
+
+.sb-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.sb-item:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.sb-item.active {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+.sb-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 16px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+
+.sb-item img, .sb-item .sb-ico {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+}
+.sb-item.sb-all img { width: 16px; height: 16px; }
+
+.sb-item .sb-label { flex: 1; }
+.sb-item .sb-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--surface-2);
+  padding: 2px 7px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+}
+.sb-item.active .sb-count {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Add group */
+.sb-add-group {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  gap: 10px;
+  transition: color 0.12s, background 0.12s;
+  margin-top: 2px;
+}
+.sb-add-group:hover { color: var(--accent); background: var(--accent-subtle); }
+.sb-add-group svg { width: 16px; height: 16px; }
+
+/* Sidebar bottom */
+.sb-bottom {
+  padding: 10px 8px 14px;
+  border-top: 1px solid var(--border);
+}
+.sb-item.sb-settings {
+  padding: 9px 12px;
+}
+
+/* ============================================================
+   Content Area
+   ============================================================ */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  position: relative;
+}
+.content::-webkit-scrollbar { width: 8px; }
+.content::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 4px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+
+.content-inner { padding: 28px 32px 40px; }
+
+/* Page header */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title-wrap { display: flex; align-items: center; gap: 14px; }
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-family: "DM Sans", sans-serif;
+}
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.page-actions { display: flex; gap: 10px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--border); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   GAME GRID VIEW
+   ============================================================ */
+.grid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.grid-filter {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+.grid-filter-chip {
+  padding: 5px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.grid-filter-chip:hover { color: var(--text-primary); }
+.grid-filter-chip.active {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+.view-toggle button {
+  width: 30px; height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.view-toggle button:hover { color: var(--text-primary); }
+.view-toggle button.active { background: var(--surface-3); color: var(--text-primary); }
+.view-toggle svg { width: 14px; height: 14px; }
+
+/* Game cards grid */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.game-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.5),
+    0 0 0 3px var(--accent-subtle);
+}
+
+.card-cover {
+  aspect-ratio: 16/10;
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+}
+.card-cover-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-cover-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.card-cover-placeholder img { width: 48px; height: 48px; opacity: 0.3; }
+
+.card-badge {
+  position: absolute;
+  top: 10px; left: 10px;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.card-badge.url { background: rgba(47, 128, 246, 0.8); }
+
+.card-drag-handle {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 26px; height: 26px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  cursor: grab;
+}
+.game-card:hover .card-drag-handle { opacity: 1; }
+.card-drag-handle:active { cursor: grabbing; }
+.card-drag-handle svg { width: 12px; height: 12px; color: #fff; }
+
+.card-body {
+  padding: 14px 16px 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+.card-meta .dot {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.card-btn {
+  flex: 1;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  transition: all 0.12s;
+}
+.card-btn:hover { background: var(--surface-3); color: var(--text-primary); border-color: var(--border-strong); }
+.card-btn.launch {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  flex: 1.3;
+}
+.card-btn.launch:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.card-btn svg { width: 12px; height: 12px; }
+
+/* Empty state */
+.empty-state {
+  padding: 80px 40px;
+  text-align: center;
+}
+.empty-state-icon {
+  width: 72px; height: 72px;
+  margin: 0 auto 20px;
+  background: var(--surface-2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-state-icon img { width: 36px; height: 36px; opacity: 0.5; }
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 24px;
+}
+
+/* ============================================================
+   SEARCH ACTIVE OVERLAY
+   ============================================================ */
+.search-topbar {
+  display: none;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 32px;
+  gap: 12px;
+  align-items: center;
+}
+.search-topbar.visible { display: flex; animation: slideDown 0.2s var(--ease-out); }
+@keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.search-topbar svg.search-icon { width: 16px; height: 16px; color: var(--text-tertiary); }
+.search-topbar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.search-topbar input::placeholder { color: var(--text-tertiary); }
+.search-topbar .search-clear-btn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.search-result-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 0 8px;
+}
+
+/* ============================================================
+   GROUP MANAGEMENT VIEW
+   ============================================================ */
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.group-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.group-card:hover { border-color: var(--border-strong); }
+
+.group-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 10px;
+}
+.group-drag {
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  cursor: grab;
+  transition: color 0.12s, background 0.12s;
+}
+.group-drag:hover { background: var(--surface-2); color: var(--text-primary); }
+.group-drag:active { cursor: grabbing; }
+.group-drag svg { width: 14px; height: 14px; }
+
+.group-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+.group-meta-chip {
+  font-size: 11px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+.group-actions { display: flex; gap: 4px; }
+.group-action-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.group-action-btn:hover { background: var(--surface-2); color: var(--text-primary); }
+.group-action-btn.delete:hover { background: rgba(218,54,51,0.15); color: var(--danger); }
+.group-action-btn svg { width: 13px; height: 13px; }
+
+.group-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.group-game-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: grab;
+  transition: all 0.12s;
+}
+.group-game-chip:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.group-game-chip .mini-cover {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.group-game-chip .mini-cover img { width: 100%; height: 100%; object-fit: cover; }
+.group-game-chip .remove-game {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  transition: all 0.12s;
+}
+.group-game-chip:hover .remove-game:hover { background: var(--danger); color: #fff; }
+
+.group-add-game {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.group-add-game:hover { border-color: var(--accent); color: var(--accent); }
+.group-add-game svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   SETTINGS VIEW
+   ============================================================ */
+.settings-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.settings-section-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+.settings-section-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 22px;
+  gap: 20px;
+}
+.settings-row + .settings-row { border-top: 1px solid var(--border); }
+
+.settings-row-label { flex: 1; }
+.settings-row-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.settings-row-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+}
+
+/* Radio group */
+.radio-group { display: flex; gap: 8px; }
+.radio-option {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.radio-option:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.radio-option.selected {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Toggle switch */
+.toggle-switch {
+  width: 44px; height: 24px;
+  background: var(--surface-3);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s var(--ease-out);
+}
+.toggle-switch.on { background: var(--accent); }
+.toggle-switch.on::after { transform: translateX(20px); }
+
+/* About */
+.about-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+}
+.about-logo {
+  width: 56px; height: 56px;
+  background: var(--accent-subtle);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.about-logo img { width: 32px; height: 32px; }
+.about-info { flex: 1; }
+.about-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.about-version {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 2px;
+  font-family: "DM Sans", monospace;
+}
+.about-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+.about-build {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--surface-0);
+  padding: 3px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+/* ============================================================
+   DETAIL DRAWER
+   ============================================================ */
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  z-index: 50;
+}
+.drawer-backdrop.visible { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 480px;
+  background: var(--surface-0);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-drawer);
+  z-index: 60;
+  transform: translateX(100%);
+  transition: transform 0.3s var(--ease-out);
+  display: flex;
+  flex-direction: column;
+}
+.drawer.visible { transform: translateX(0); }
+
+.drawer-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.drawer-back {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.drawer-back:hover { background: var(--surface-2); color: var(--text-primary); }
+.drawer-back svg { width: 14px; height: 14px; }
+
+.drawer-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.drawer-title strong { color: var(--text-primary); font-weight: 600; }
+
+.drawer-close {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.drawer-close:hover { background: var(--surface-2); color: var(--text-primary); }
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+.drawer-body::-webkit-scrollbar { width: 6px; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+
+.drawer-cover {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-2);
+  margin-bottom: 24px;
+  position: relative;
+  cursor: zoom-in;
+}
+.drawer-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.drawer-cover-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-3));
+  display: flex; align-items: center; justify-content: center;
+}
+.drawer-cover-placeholder img { width: 64px; height: 64px; opacity: 0.3; }
+
+.cover-zoom-hint {
+  position: absolute;
+  bottom: 10px; right: 10px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #fff;
+  display: flex; align-items: center; gap: 5px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.drawer-cover:hover .cover-zoom-hint { opacity: 1; }
+.cover-zoom-hint svg { width: 12px; height: 12px; }
+
+.drawer-section { margin-bottom: 22px; }
+.drawer-section:last-child { margin-bottom: 0; }
+.drawer-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+.drawer-field {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.drawer-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+.drawer-field-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+.drawer-field-value.mono {
+  font-family: "DM Sans", monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.drawer-field-value.empty { color: var(--text-tertiary); font-style: italic; }
+.drawer-field-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.drawer-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  background: var(--surface-0);
+}
+.drawer-footer .btn.launch {
+  flex: 1;
+  height: 40px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+.drawer-footer .btn.launch:hover { background: var(--accent-hover); }
+.drawer-footer .btn-icon {
+  width: 40px; height: 40px;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.drawer-footer .btn-icon svg { width: 16px; height: 16px; }
+.drawer-footer .btn-icon.delete:hover { border-color: var(--danger); color: var(--danger); background: rgba(218,54,51,0.1); }
+
+/* ============================================================
+   COVER PREVIEW (modal)
+   ============================================================ */
+.cover-preview-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.cover-preview-modal.visible { opacity: 1; pointer-events: auto; }
+.cover-preview-modal img {
+  max-width: 85%;
+  max-height: 85%;
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+  animation: zoomIn 0.25s var(--ease-out);
+}
+@keyframes zoomIn { from { transform: scale(0.9); } to { transform: scale(1); } }
+
+/* ============================================================
+   SCROLLBAR & GLOBAL UTILITIES
+   ============================================================ */
+.hidden { display: none !important; }
+.visible-block { display: block !important; }
+
+/* ============================================================
+   RESPONSIVE — for previewing at smaller sizes
+   ============================================================ */
+@media (max-width: 1280px) {
+  .app-window { width: 1080px; height: 720px; }
+}
+@media (max-width: 1100px) {
+  .app-window { width: 100%; height: 100%; border-radius: 0; }
+  .desktop-stage { padding: 0; }
+}
+
+/* ============================================================
+   SEARCH MODE — filters sidebar list
+   ============================================================ */
+body.is-searching .sb-nav-item { display: none; }
+body.is-searching .sb-nav-item.show { display: flex; }
+
+/* ============================================================
+   PAGE TRANSITION — subtle fade
+   ============================================================ */
+.page-view { animation: pageFadeIn 0.25s var(--ease-out); }
+@keyframes pageFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+</style>
+</head>
+<body>
+
+<!-- ==========================================================
+     DESKTOP STAGE
+     ========================================================== -->
+<div class="desktop-stage">
+<div class="app-window">
+
+  <!-- ============================================================
+       TITLE BAR
+       ============================================================ -->
+  <div class="titlebar">
+    <img class="tb-logo" src="../images/logo.png" alt="" />
+    <div class="tb-title">SZGame</div>
+    <div class="tb-spacer"></div>
+    <div class="tb-wincontrols">
+      <div class="tb-btn minimize" title="最小化">
+        <svg viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="1" fill="currentColor"/></svg>
+      </div>
+      <div class="tb-btn maximize" title="最大化">
+        <svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1" fill="none"/></svg>
+      </div>
+      <div class="tb-btn close" title="关闭">
+        <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       APP BODY
+       ============================================================ -->
+  <div class="app-body">
+
+    <!-- ==========================================================
+         SIDEBAR
+         ========================================================== -->
+    <aside class="sidebar">
+      <div class="sb-search">
+        <div class="sb-search-box" id="sbSearchBox">
+          <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>
+          </svg>
+          <input type="text" id="sbSearchInput" placeholder="搜索游戏..." />
+          <div class="sb-search-clear" id="sbSearchClear">×</div>
+        </div>
+      </div>
+
+      <nav class="sb-nav" id="sbNav">
+        <div class="sb-section-label">我的游戏</div>
+
+        <div class="sb-item sb-all active" data-group="all" data-view="home">
+          <img src="../images/all.png" alt="" />
+          <span class="sb-label">全部</span>
+          <span class="sb-count">12</span>
+        </div>
+
+        <div class="sb-item" data-group="fps" data-view="home">
+          <span class="sb-ico" style="font-size:14px; font-weight:700; color:var(--accent);">FPS</span>
+          <span class="sb-label">射击竞技</span>
+          <span class="sb-count">5</span>
+        </div>
+
+        <div class="sb-item" data-group="rpg" data-view="home">
+          <span class="sb-ico" style="font-size:14px; font-weight:700; color:var(--accent);">RPG</span>
+          <span class="sb-label">角色扮演</span>
+          <span class="sb-count">4</span>
+        </div>
+
+        <div class="sb-item" data-group="strategy" data-view="home">
+          <span class="sb-ico" style="font-size:14px; font-weight:700; color:var(--accent);">RTS</span>
+          <span class="sb-label">策略经营</span>
+          <span class="sb-count">3</span>
+        </div>
+
+        <div class="sb-add-group" id="sbAddGroup">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3v10M3 8h10" stroke-linecap="round"/>
+          </svg>
+          <span>新建分组</span>
+        </div>
+
+        <div class="sb-section-label" style="padding-top:20px;">管理</div>
+
+        <div class="sb-item" data-view="groups">
+          <img src="../images/group.png" alt="" />
+          <span class="sb-label">分组管理</span>
+        </div>
+      </nav>
+
+      <div class="sb-bottom">
+        <div class="sb-item sb-settings" data-view="settings">
+          <img src="../images/setting.png" alt="" />
+          <span class="sb-label">设置</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================================
+         CONTENT AREA
+         ========================================================== -->
+    <main class="content">
+
+      <!-- SEARCH TOPBAR (revealed when sb-search has value) -->
+      <div class="search-topbar" id="searchTopbar">
+        <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>
+        </svg>
+        <input type="text" id="searchTopbarInput" placeholder="搜索结果..." />
+        <span class="search-result-count" id="searchResultCount"></span>
+        <button class="search-clear-btn" id="searchTopbarClear">×</button>
+      </div>
+
+      <div class="content-inner">
+
+        <!-- ========================================================
+             PAGE: GAME BOX (HOME)
+             ======================================================== -->
+        <section class="page-view" id="page-home">
+          <div class="page-header">
+            <div>
+              <div class="page-title-wrap">
+                <h1 class="page-title" id="pageTitle">全部游戏</h1>
+              </div>
+              <div class="page-subtitle" id="pageSubtitle">共 12 款游戏 · 点击卡片可查看详情</div>
+            </div>
+            <div class="page-actions">
+              <button class="btn" id="btnAddGame">
+                <img src="../images/add.png" alt="" style="width:14px;height:14px;" />
+                添加游戏
+              </button>
+              <button class="btn primary" id="btnBatchLaunch">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 3l9 5-9 5V3z"/></svg>
+                启动全部
+              </button>
+            </div>
+          </div>
+
+          <div class="grid-toolbar">
+            <div class="grid-filter">
+              <div class="grid-filter-chip active" data-filter="all">全部 (12)</div>
+              <div class="grid-filter-chip" data-filter="exe">EXE (7)</div>
+              <div class="grid-filter-chip" data-filter="bat">脚本 (2)</div>
+              <div class="grid-filter-chip" data-filter="url">网页 (3)</div>
+            </div>
+            <div class="view-toggle">
+              <button class="active" title="网格视图">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
+                  <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+                </svg>
+              </button>
+              <button title="列表视图">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="3" width="12" height="2" rx="0.5"/><rect x="2" y="7" width="12" height="2" rx="0.5"/><rect x="2" y="11" width="12" height="2" rx="0.5"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- GAME CARDS GRID -->
+          <div class="game-grid" id="gameGrid">
+            <!-- Cards injected by JS -->
+          </div>
+
+          <!-- EMPTY STATE (hidden by default) -->
+          <div class="empty-state hidden" id="emptyState">
+            <div class="empty-state-icon">
+              <img src="../images/game.png" alt="" />
+            </div>
+            <div class="empty-state-title" id="emptyTitle">没有找到匹配的游戏</div>
+            <div class="empty-state-desc" id="emptyDesc">试试换个关键词，或者去「分组管理」里添加新游戏</div>
+          </div>
+        </section>
+
+        <!-- ========================================================
+             PAGE: GROUPS
+             ======================================================== -->
+        <section class="page-view hidden" id="page-groups">
+          <div class="page-header">
+            <div>
+              <div class="page-title-wrap">
+                <h1 class="page-title">分组管理</h1>
+              </div>
+              <div class="page-subtitle">管理游戏归属 · 拖拽可调整顺序</div>
+            </div>
+            <div class="page-actions">
+              <button class="btn primary" id="btnNewGroup">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>
+                新建分组
+              </button>
+            </div>
+          </div>
+
+          <div class="group-list" id="groupList">
+            <!-- Group cards injected by JS -->
+          </div>
+        </section>
+
+        <!-- ========================================================
+             PAGE: SETTINGS
+             ======================================================== -->
+        <section class="page-view hidden" id="page-settings">
+          <div class="page-header">
+            <div>
+              <div class="page-title-wrap">
+                <h1 class="page-title">设置</h1>
+              </div>
+              <div class="page-subtitle">偏好与窗口行为</div>
+            </div>
+          </div>
+
+          <!-- WINDOW BEHAVIOR -->
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <div class="settings-section-title">窗口行为</div>
+              <div class="settings-section-desc">控制最小化和关闭按钮的默认行为</div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <div class="settings-row-title">点击最小化按钮时</div>
+                <div class="settings-row-sub">决定窗口最小化后的停靠位置</div>
+              </div>
+              <div class="radio-group" data-setting="minimize">
+                <div class="radio-option" data-value="taskbar">任务栏</div>
+                <div class="radio-option selected" data-value="tray">系统托盘</div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <div class="settings-row-title">点击关闭按钮时</div>
+                <div class="settings-row-sub">决定关闭按钮是退出还是隐藏到托盘</div>
+              </div>
+              <div class="radio-group" data-setting="close">
+                <div class="radio-option" data-value="exit">直接退出</div>
+                <div class="radio-option selected" data-value="minimize-to-tray">最小化到托盘</div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <div class="settings-row-title">启动时最小化到托盘</div>
+                <div class="settings-row-sub">应用启动后直接隐藏，仅通过托盘图标唤醒</div>
+              </div>
+              <div class="toggle-switch" id="toggleStartupMin"></div>
+            </div>
+          </div>
+
+          <!-- APPEARANCE -->
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <div class="settings-section-title">外观</div>
+              <div class="settings-section-desc">界面展示偏好</div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <div class="settings-row-title">游戏卡片显示封面预览</div>
+                <div class="settings-row-sub">关闭后将只显示游戏名称和图标</div>
+              </div>
+              <div class="toggle-switch on" id="toggleCovers"></div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <div class="settings-row-title">启动游戏后自动隐藏窗口</div>
+                <div class="settings-row-sub">启动游戏后将 SZGame 窗口最小化，避免遮挡游戏画面</div>
+              </div>
+              <div class="toggle-switch" id="toggleAutoHide"></div>
+            </div>
+          </div>
+
+          <!-- ABOUT -->
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <div class="settings-section-title">关于</div>
+            </div>
+            <div class="about-box">
+              <div class="about-logo">
+                <img src="../images/logo.png" alt="" />
+              </div>
+              <div class="about-info">
+                <div class="about-name">SZGame</div>
+                <div class="about-version">Version 0.1.0-alpha</div>
+                <div class="about-desc">一款轻量本地游戏管理盒子 · Electron + React</div>
+              </div>
+              <div class="about-build">
+                Build<br/>2026.09.22
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ========================================================
+           DETAIL DRAWER
+           ======================================================== -->
+      <div class="drawer-backdrop" id="drawerBackdrop"></div>
+      <div class="drawer" id="drawer">
+        <div class="drawer-header">
+          <button class="drawer-back" id="drawerBackBtn" title="返回">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 3l-5 5 5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="drawer-title"><strong id="drawerMetaTitle">—</strong> · 游戏详情</div>
+          <button class="drawer-close" id="drawerCloseBtn">×</button>
+        </div>
+        <div class="drawer-body" id="drawerBody">
+          <!-- Filled by JS -->
+        </div>
+        <div class="drawer-footer">
+          <button class="btn launch" id="drawerLaunchBtn">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 3l9 5-9 5V3z"/></svg>
+            启动游戏
+          </button>
+          <button class="btn btn-icon" id="drawerEditBtn" title="编辑">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2l2 2-9 9H3v-2l9-9z"/>
+            </svg>
+          </button>
+          <button class="btn btn-icon delete" id="drawerDeleteBtn" title="删除">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M4 4l1 10a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l1-10"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           COVER PREVIEW MODAL
+           ======================================================== -->
+      <div class="cover-preview-modal" id="coverPreview">
+        <img src="" alt="" id="coverPreviewImg" />
+      </div>
+
+    </main>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — Interaction Logic
+     ============================================================ -->
+<script>
+/* ------------------------------------------------------------
+   Mock Data
+   ------------------------------------------------------------ */
+const GAMES = [
+  { id:1, name:"赛博朋克 2077", type:"exe",  launch:"D:\\Games\\CP2077\\bin\\x64\\Cyberpunk2077.exe", args:"-skip-launcher", group:"rpg",    cover:"https://picsum.photos/seed/cyberpunk/600/375" },
+  { id:2, name:"Counter-Strike 2", type:"exe",  launch:"steam://rungameid/730", args:"", group:"fps",       cover:"https://picsum.photos/seed/cs2/600/375" },
+  { id:3, name:"艾尔登法环",       type:"exe",  launch:"steam://rungameid/1245620", args:"", group:"rpg",    cover:"https://picsum.photos/seed/eldenring/600/375" },
+  { id:4, name:"DOTA 2",          type:"bat",  launch:"D:\\Games\\Dota2\\run.bat", args:"-high", group:"strategy", cover:"https://picsum.photos/seed/dota/600/375" },
+  { id:5, name:"命运 2",          type:"exe",  launch:"steam://rungameid/1086940", args:"", group:"fps",       cover:"https://picsum.photos/seed/destiny/600/375" },
+  { id:6, name:"文明 6",           type:"url",  launch:"https://www.epicgames.com/civilization", args:"", group:"strategy", cover:"https://picsum.photos/seed/civ6/600/375" },
+  { id:7, name:"GTA V",           type:"exe",  launch:"D:\\Games\\GTA5\\GTAV.exe", args:"-ignoreVarious", group:"rpg", cover:"https://picsum.photos/seed/gta/600/375" },
+  { id:8, name:"Valorant",        type:"exe",  launch:"C:\\Riot Games\\VALORANT\\VALORANT.exe", args:"", group:"fps", cover:"https://picsum.photos/seed/valorant/600/375" },
+  { id:9, name:"魔兽世界",        type:"bat",  launch:"D:\\WoW\\World of Warcraft.lnk", args:"", group:"rpg", cover:"https://picsum.photos/seed/wow/600/375" },
+  { id:10, name:"原神",           type:"url",  launch:"https://ys.mihoyo.com", args:"", group:"rpg", cover:"https://picsum.photos/seed/genshin/600/375" },
+  { id:11, name:"星际争霸 2",      type:"exe",  launch:"steam://rungameid/49520", args:"-exec Launch", group:"strategy", cover:"https://picsum.photos/seed/starcraft/600/375" },
+  { id:12, name:"英雄联盟",       type:"url",  launch:"https://lol.qq.com", args:"", group:"fps", cover:"https://picsum.photos/seed/lol/600/375" },
+];
+
+const GROUPS = [
+  { id:"fps",     name:"射击竞技", games:["Counter-Strike 2","命运 2","Valorant","英雄联盟"] },
+  { id:"rpg",     name:"角色扮演", games:["赛博朋克 2077","艾尔登法环","GTA V","魔兽世界","原神"] },
+  { id:"strategy",name:"策略经营", games:["DOTA 2","文明 6","星际争霸 2"] },
+];
+
+/* ------------------------------------------------------------
+   State
+   ------------------------------------------------------------ */
+let currentView = "home";
+let currentGroup = "all";
+let currentFilter = "all";
+let searchQuery = "";
+let selectedGameId = null;
+
+/* ------------------------------------------------------------
+   Utility
+   ------------------------------------------------------------ */
+function $(sel, root=document){ return root.querySelector(sel); }
+function $$(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
+
+function typeBadge(type){
+  const labels = { exe:"EXE", bat:"脚本", url:"网页" };
+  const cls = type === "url" ? "card-badge url" : "card-badge";
+  return `<span class="${cls}">${labels[type] || type.toUpperCase()}</span>`;
+}
+
+function cardHTML(g){
+  const launchLabel = g.type === "url" ? "打开网站" : "启动";
+  return `
+    <div class="game-card" data-id="${g.id}">
+      <div class="card-drag-handle" title="拖拽排序">
+        <svg viewBox="0 0 12 12" fill="currentColor">
+          <circle cx="3" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/>
+          <circle cx="3" cy="6" r="1.2"/><circle cx="9" cy="6" r="1.2"/>
+          <circle cx="3" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/>
+        </svg>
+      </div>
+      <div class="card-cover">
+        ${g.cover
+          ? `<img class="card-cover-img" src="${g.cover}" alt="" loading="lazy" onerror="this.replaceWith(document.querySelector('#ph-template').content.cloneNode(true))"/>`
+          : `<div class="card-cover-placeholder"><img src="../images/game.png" alt=""/></div>`}
+        ${typeBadge(g.type)}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${g.name}</div>
+        <div class="card-meta">
+          <span>${launchLabel}</span>
+          <span class="dot"></span>
+          <span>${g.type.toUpperCase()}</span>
+        </div>
+        <div class="card-actions">
+          <button class="card-btn launch" data-action="launch" data-id="${g.id}">
+            <svg viewBox="0 0 12 12" fill="currentColor"><path d="M2 2l8 4-8 4V2z"/></svg>
+            ${launchLabel}
+          </button>
+          <button class="card-btn" data-action="detail" data-id="${g.id}">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M6 4v4M4 6h4"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ------------------------------------------------------------
+   Render: Game Grid
+   ------------------------------------------------------------ */
+function renderGrid(){
+  const grid = $("#gameGrid");
+  const empty = $("#emptyState");
+  const title = $("#pageTitle");
+  const subtitle = $("#pageSubtitle");
+
+  let list = [...GAMES];
+
+  // Filter by group
+  if(currentGroup !== "all") list = list.filter(g => g.group === currentGroup);
+
+  // Filter by type
+  if(currentFilter !== "all") list = list.filter(g => g.type === currentFilter);
+
+  // Search filter
+  if(searchQuery){
+    const q = searchQuery.toLowerCase();
+    list = list.filter(g => g.name.toLowerCase().includes(q));
+  }
+
+  if(searchQuery){
+    title.textContent = searchQuery ? `搜索：${searchQuery}` : "全部游戏";
+    subtitle.textContent = searchQuery
+      ? `找到 ${list.length} 个匹配 ${searchQuery} 的游戏`
+      : "";
+    $("#searchResultCount").textContent = `${list.length} 个结果`;
+  } else if(currentGroup !== "all"){
+    const groupName = GROUPS.find(g => g.id === currentGroup)?.name || currentGroup;
+    title.textContent = groupName;
+    subtitle.textContent = `共 ${list.length} 款游戏 · 点击卡片可查看详情`;
+  } else {
+    title.textContent = "全部游戏";
+    subtitle.textContent = `共 ${list.length} 款游戏 · 点击卡片可查看详情`;
+  }
+
+  if(list.length === 0){
+    grid.classList.add("hidden");
+    empty.classList.remove("hidden");
+  } else {
+    grid.classList.remove("hidden");
+    empty.classList.add("hidden");
+    grid.innerHTML = list.map(cardHTML).join("");
+  }
+
+  // Wire up card clicks
+  $$("#gameGrid .game-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      const action = e.target.closest("[data-action]");
+      if(action){
+        const id = Number(action.dataset.id);
+        if(action.dataset.action === "launch"){
+          showToast(`▶ 启动 ${GAMES.find(g=>g.id===id).name}`, "success");
+        } else {
+          openDrawer(id);
+        }
+      } else {
+        openDrawer(Number(card.dataset.id));
+      }
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   Render: Group Management
+   ------------------------------------------------------------ */
+function renderGroups(){
+  const wrap = $("#groupList");
+  wrap.innerHTML = GROUPS.map(grp => {
+    const chips = grp.games.map(gn => {
+      const g = GAMES.find(x => x.name === gn);
+      return `
+        <div class="group-game-chip" title="${g?.launch || gn}">
+          <div class="mini-cover">
+            ${g?.cover ? `<img src="${g.cover}" alt="" onerror="this.parentElement.style.background='var(--surface-3)';this.remove()"/>` : ''}
+          </div>
+          <span>${gn}</span>
+          <button class="remove-game" title="从分组移除">×</button>
+        </div>
+      `;
+    }).join("");
+    return `
+      <div class="group-card">
+        <div class="group-header">
+          <div class="group-drag" title="拖拽排序">
+            <svg viewBox="0 0 14 14" fill="currentColor">
+              <circle cx="4" cy="3" r="1.4"/><circle cx="10" cy="3" r="1.4"/>
+              <circle cx="4" cy="7" r="1.4"/><circle cx="10" cy="7" r="1.4"/>
+              <circle cx="4" cy="11" r="1.4"/><circle cx="10" cy="11" r="1.4"/>
+            </svg>
+          </div>
+          <div class="group-name">${grp.name}</div>
+          <div class="group-meta-chip">${grp.games.length} 款游戏</div>
+          <div class="group-actions">
+            <button class="group-action-btn" title="重命名">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M10 2l2 2-7 7H2v-3l8-8z"/></svg>
+            </button>
+            <button class="group-action-btn delete" title="删除分组">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h10M5 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M3 4l1 8a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l1-8"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="group-games">
+          ${chips}
+          <button class="group-add-game" title="添加游戏">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 3v8M3 7h8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+/* ------------------------------------------------------------
+   Drawer
+   ------------------------------------------------------------ */
+function openDrawer(id){
+  const g = GAMES.find(x => x.id === id);
+  if(!g) return;
+  selectedGameId = id;
+  $("#drawerMetaTitle").textContent = g.name;
+  $("#drawerLaunchBtn").textContent = g.type === "url" ? "打开网站" : "启动游戏";
+  $("#drawerBody").innerHTML = `
+    <div class="drawer-cover" id="drawerCover">
+      ${g.cover
+        ? `<img src="${g.cover}" alt="" />`
+        : `<div class="drawer-cover-placeholder"><img src="../images/game.png" alt=""/></div>`}
+      <div class="cover-zoom-hint">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3"/><path d="M7 7l3 3M4 5h2M5 4v2" stroke-linecap="round"/></svg>
+        点击预览大图
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">基础信息</div>
+      <div class="drawer-field" style="margin-bottom:10px;">
+        <div class="drawer-field-label">游戏名称</div>
+        <div class="drawer-field-value">${g.name}</div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-field-label">启动类型</div>
+        <div class="drawer-field-value">
+          ${g.type === "exe" ? "本地可执行程序" : g.type === "bat" ? "批处理脚本" : "网页链接"}
+          <span class="drawer-field-type-badge">${g.type.toUpperCase()}</span>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">启动配置</div>
+      <div class="drawer-field" style="margin-bottom:10px;">
+        <div class="drawer-field-label">启动路径</div>
+        <div class="drawer-field-value mono">${g.launch}</div>
+      </div>
+      <div class="drawer-field" style="margin-bottom:10px;">
+        <div class="drawer-field-label">启动参数</div>
+        <div class="drawer-field-value mono ${!g.args ? 'empty' : ''}">${g.args || '未设置'}</div>
+      </div>
+      <div class="drawer-field">
+        <div class="drawer-field-label">所属分组</div>
+        <div class="drawer-field-value">${GROUPS.find(x => x.id === g.group)?.name || '未分类'}</div>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">封面图</div>
+      <div class="drawer-field">
+        <div class="drawer-field-label">封面来源</div>
+        <div class="drawer-field-value">${g.cover ? '已上传' : '使用默认占位图'}</div>
+      </div>
+    </div>
+  `;
+
+  $("#drawer").classList.add("visible");
+  $("#drawerBackdrop").classList.add("visible");
+  setTimeout(() => $("#drawerBackdrop").style.background = "", 300);
+
+  // Cover preview click
+  const cover = $("#drawerCover");
+  if(cover){
+    cover.addEventListener("click", () => {
+      if(g.cover){
+        const modal = $("#coverPreview");
+        $("#coverPreviewImg").src = g.cover;
+        modal.classList.add("visible");
+      }
+    });
+  }
+}
+function closeDrawer(){
+  $("#drawer").classList.remove("visible");
+  $("#drawerBackdrop").classList.remove("visible");
+  selectedGameId = null;
+}
+
+/* ------------------------------------------------------------
+   Navigation
+   ------------------------------------------------------------ */
+function switchView(view, group=null){
+  currentView = view;
+  if(group) currentGroup = group;
+  // active state sidebar
+  $$(".sb-item").forEach(el => {
+    el.classList.toggle("active",
+      (view === "settings" && el.dataset.view === "settings") ||
+      (view === "groups" && el.dataset.view === "groups") ||
+      (view === "home" && el.dataset.group === group)
+    );
+  });
+  // show page
+  $("#page-home").classList.toggle("hidden", view !== "home");
+  $("#page-groups").classList.toggle("hidden", view !== "groups");
+  $("#page-settings").classList.toggle("hidden", view !== "settings");
+  // render
+  if(view === "home") renderGrid();
+  if(view === "groups") renderGroups();
+}
+
+/* ------------------------------------------------------------
+   Toast
+   ------------------------------------------------------------ */
+function showToast(msg, type="info"){
+  let t = document.getElementById("_toast");
+  if(!t){
+    t = document.createElement("div");
+    t.id = "_toast";
+    Object.assign(t.style, {
+      position: "fixed", zIndex: 9999,
+      bottom: "40px", left: "50%", transform: "translateX(-50%) translateY(20px)",
+      background: type === "success" ? "#238636" : type === "danger" ? "#da3633" : "#1a2230",
+      color: "#fff", padding: "10px 22px", borderRadius: "8px",
+      fontSize: "13px", fontWeight: "500", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+      opacity: "0", transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)"
+    });
+    document.body.appendChild(t);
+  }
+  t.style.opacity = "0";
+  t.style.transform = "translateX(-50%) translateY(20px)";
+  requestAnimationFrame(() => {
+    t.textContent = msg;
+    t.style.opacity = "1";
+    t.style.transform = "translateX(-50%) translateY(0)";
+  });
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => {
+    t.style.opacity = "0";
+    t.style.transform = "translateX(-50%) translateY(20px)";
+  }, 2000);
+}
+
+/* ------------------------------------------------------------
+   Search — debounced
+   ------------------------------------------------------------ */
+let searchTimer = null;
+function handleSearch(){
+  const val = $("#sbSearchInput").value.trim();
+  $("#sbSearchBox").classList.toggle("has-value", !!val);
+  $("#searchTopbarInput").value = val;
+  $("#searchTopbar").classList.toggle("visible", !!val);
+  document.body.classList.toggle("is-searching", !!val);
+  searchQuery = val;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    renderGrid();
+    if(val) $("#searchTopbarInput").focus();
+  }, 200);
+}
+
+/* ------------------------------------------------------------
+   Init
+   ------------------------------------------------------------ */
+document.addEventListener("DOMContentLoaded", () => {
+
+  // Sidebar nav click
+  $$(".sb-item[data-view]").forEach(el => {
+    el.addEventListener("click", () => {
+      switchView(el.dataset.view, el.dataset.group);
+      // clear search when leaving home
+      if(el.dataset.view !== "home"){
+        $("#sbSearchInput").value = "";
+        handleSearch();
+      }
+    });
+  });
+
+  // Grid filter chips
+  $$(".grid-filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      $$(".grid-filter-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentFilter = chip.dataset.filter;
+      renderGrid();
+    });
+  });
+
+  // View toggle
+  $$(".view-toggle button").forEach(b => {
+    b.addEventListener("click", () => {
+      $$(".view-toggle button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+
+  // Search box
+  $("#sbSearchInput").addEventListener("input", handleSearch);
+  $("#sbSearchClear").addEventListener("click", () => {
+    $("#sbSearchInput").value = ""; handleSearch(); $("#sbSearchInput").focus();
+  });
+  $("#searchTopbarClear").addEventListener("click", () => {
+    $("#sbSearchInput").value = ""; handleSearch(); $("#sbSearchInput").focus();
+  });
+  $("#searchTopbarInput").addEventListener("input", (e) => {
+    $("#sbSearchInput").value = e.target.value;
+    searchQuery = e.target.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderGrid, 200);
+  });
+
+  // Drawer close
+  $("#drawerBackdrop").addEventListener("click", closeDrawer);
+  $("#drawerBackBtn").addEventListener("click", closeDrawer);
+  $("#drawerCloseBtn").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape"){
+      if($("#coverPreview").classList.contains("visible")){
+        $("#coverPreview").classList.remove("visible");
+      } else if($("#drawer").classList.contains("visible")){
+        closeDrawer();
+      }
+    }
+  });
+
+  // Cover preview modal close
+  $("#coverPreview").addEventListener("click", () => $("#coverPreview").classList.remove("visible"));
+
+  // Drawer footer buttons
+  $("#drawerLaunchBtn").addEventListener("click", () => {
+    if(selectedGameId){
+      const g = GAMES.find(x => x.id === selectedGameId);
+      showToast(`▶ 启动 ${g.name}`, "success");
+    }
+  });
+  $("#drawerEditBtn").addEventListener("click", () => showToast("✏ 打开编辑表单（mock）"));
+  $("#drawerDeleteBtn").addEventListener("click", () => showToast("🗑 删除确认对话框（mock）", "danger"));
+
+  // Settings radio groups
+  $$(".radio-group").forEach(group => {
+    $$(".radio-option", group).forEach(opt => {
+      opt.addEventListener("click", () => {
+        $$(".radio-option", group).forEach(x => x.classList.remove("selected"));
+        opt.classList.add("selected");
+        const settingKey = group.dataset.setting;
+        const val = opt.dataset.value;
+        showToast(`设置已保存：${settingKey} = ${val}`);
+      });
+    });
+  });
+
+  // Toggle switches
+  $$(".toggle-switch").forEach(t => {
+    t.addEventListener("click", () => t.classList.toggle("on"));
+  });
+
+  // Header action buttons
+  $("#btnAddGame").addEventListener("click", () => showToast("➕ 打开添加游戏弹窗（mock）"));
+  $("#btnBatchLaunch").addEventListener("click", () => showToast("▶▶ 批量启动全部游戏（mock）"));
+  $("#btnNewGroup").addEventListener("click", () => showToast("➕ 新建分组弹窗（mock）"));
+
+  // Title bar buttons (visual only)
+  $(".tb-btn.minimize").addEventListener("click", () => showToast("— 最小化（mock：根据设置去任务栏或托盘）"));
+  $(".tb-btn.maximize").addEventListener("click", () => showToast("□ 最大化（mock）"));
+  $(".tb-btn.close").addEventListener("click", () => showToast("✕ 关闭（mock：根据设置退出或最小化到托盘）"));
+
+  // "新建分组" in sidebar
+  $("#sbAddGroup").addEventListener("click", () => showToast("➕ 新建分组弹窗（mock）"));
+
+  // Initial render
+  renderGrid();
+  renderGroups();
+
+  // Demo: auto-open detail drawer after 1s for visual demo
+  // setTimeout(() => openDrawer(1), 1000);
+
+});
+</script>
+
+<!-- Placeholder template for card cover fallback -->
+<template id="ph-template">
+  <div class="card-cover-placeholder"><img src="../images/game.png" alt=""/></div>
+</template>
+
+</body>
+</html>
