@@ -34,6 +34,7 @@ import { initRemoteCover, searchCovers, downloadCover, downloadAsBase64 } from '
 // ============================================================
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let DATA_DIR = ""    // resolveUserDataDir() 启动时缓存
 
 let minimizeBehavior: 'taskbar' | 'tray' = 'tray'
 let closeBehavior: 'exit' | 'minimize-to-tray' = 'minimize-to-tray'
@@ -43,6 +44,24 @@ let closeBehavior: 'exit' | 'minimize-to-tray' = 'minimize-to-tray'
 // ============================================================
 const isDev = !app.isPackaged
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
+
+
+// ── 便携模式：数据目录放在 EXE 同级的 ./data/ 下 ──
+function resolveUserDataDir(): string {
+  const exeDir = path.dirname(process.execPath)
+  const dataDir = path.join(exeDir, 'data')
+  try {
+    fs.mkdirSync(dataDir, { recursive: true })
+    fs.writeFileSync(path.join(dataDir, '.write_test'), 'ok')
+    fs.unlinkSync(path.join(dataDir, '.write_test'))
+    console.info('[app] using portable data dir:', dataDir)
+    return dataDir
+  } catch {
+    const fallback = app.getPath('userData')
+    console.warn('[app] portable dir not writable, fallback to:', fallback)
+    return fallback
+  }
+}
 
 // ============================================================
 // Window
@@ -226,7 +245,7 @@ ipcMain.handle('db:games:update', (_e, id: number, input: Partial<GameCreateInpu
 })
 ipcMain.handle('db:games:delete', (_e, id: number) => {
   const row = deleteGame(id)
-  if (row?.cover_image) initCoverManager(app.getPath('userData')) // 确保已初始化
+  if (row?.cover_image) initCoverManager(DATA_DIR) // 确保已初始化
   return { ok: true }
 })
 ipcMain.handle('db:games:reorder', (_e, groupId: number | null, items: { id: number; sort_order: number }[]) => {
@@ -279,12 +298,12 @@ ipcMain.handle('dialog:selectFile', async (_e, filters?: { name: string; extensi
 })
 
 ipcMain.handle('cover:saveFromPath', (_e, sourcePath: string) => {
-  const userDataDir = app.getPath('userData')
+  const userDataDir = DATA_DIR
   initCoverManager(userDataDir)
   return saveFromPath(sourcePath)
 })
 ipcMain.handle('groupIcon:saveFromPath', (_e, sourcePath: string) => {
-  const userDataDir = app.getPath('userData')
+  const userDataDir = DATA_DIR
   initCoverManager(userDataDir)
   return saveFromPath(sourcePath, 'group-icons')
 })
@@ -329,7 +348,7 @@ app.on('second-instance', () => {
 // Lifecycle
 // ============================================================
 app.whenReady().then(async () => {
-  const userDataDir = app.getPath('userData')
+  const userDataDir = DATA_DIR
   const coversDir = path.join(userDataDir, 'covers')
 
   // 初始化 DB

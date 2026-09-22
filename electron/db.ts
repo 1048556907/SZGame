@@ -81,25 +81,6 @@ function ensureDefaultGroups(): void {
   }
 }
 
-/** 启动时清理历史遗留的种子示例游戏（Counter-Strike 2 / 艾尔登法环 / DOTA 2）
- *  —— 只清 games，不动 groups（ensureDefaultGroups 保留默认收藏夹） */
-function purgeLegacySeedGames(): void {
-  const seedNames = ['Counter-Strike 2', '艾尔登法环', 'DOTA 2']
-  let total = 0
-  for (const name of seedNames) {
-    const stmt = getDB().prepare('DELETE FROM games WHERE name = ?')
-    stmt.bind([name])
-    stmt.step()
-    const del = (stmt as any).getRowsModified?.() ?? 0
-    stmt.free()
-    if (del > 0) {
-      total += del
-      console.warn(`[db] purgeLegacySeedGames: deleted ${del} row(s) of "${name}"`)
-    }
-  }
-  if (total > 0) save()
-}
-
 // ============================================================
 // Initialize
 // ============================================================
@@ -133,12 +114,6 @@ export async function initDatabase(userDataDir: string): Promise<void> {
     ensureDefaultGroups()
     db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('db.groups.initialized', '1')")
   }
-
-  // 清理历史遗留的种子示例游戏（彻底删除 SEED_SQL 插入的 Counter-Strike 2 / 艾尔登法环 / DOTA 2）
-  purgeLegacySeedGames()
-
-  // 清理可能已残留的 db.seeded 守卫标记（因为不再有种子逻辑）
-  db.run("DELETE FROM settings WHERE key = 'db.seeded'")
 
   // ── 迁移：补齐旧版表缺失的列 ──
   ensureColumn('groups', 'icon_image', 'TEXT')
