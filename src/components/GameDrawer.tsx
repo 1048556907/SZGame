@@ -124,29 +124,37 @@ export default function GameDrawer({ game, groups, onClose, onLaunch, onEdit, on
         {/* 底部操作 */}
         <div style={{
           padding: '16px 24px', borderTop: '1px solid var(--border)',
-          display: 'flex', gap: 10
+          display: 'flex', gap: 10, alignItems: 'center'
         }}>
           {onEdit && (
             <button
               onClick={onEdit}
+              title="编辑游戏"
               style={{
-                height: 40, padding: '0 16px', borderRadius: 6,
+                width: 40, height: 40, borderRadius: 6,
                 border: '1px solid var(--border-strong)', background: 'transparent',
-                color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer',
-                transition: 'all 0.15s'
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s', padding: 0
               }}
-            >✏ 编辑</button>
+            >
+              <img src="../images/scj_edit.png" alt="编辑" style={{ height: '1em', display: 'block' }} />
+            </button>
           )}
           {onDelete && (
             <button
               onClick={onDelete}
+              title="删除游戏"
               style={{
-                height: 40, padding: '0 16px', borderRadius: 6,
+                width: 40, height: 40, borderRadius: 6,
                 border: '1px solid var(--border-strong)', background: 'transparent',
-                color: 'var(--danger)', fontSize: 12, cursor: 'pointer',
-                transition: 'all 0.15s'
+                color: 'var(--danger)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s', padding: 0
               }}
-            >🗑 删除</button>
+            >
+              <img src="../images/scj_del.png" alt="删除" style={{ height: '1em', display: 'block' }} />
+            </button>
           )}
           <button
             onClick={handleLaunch}

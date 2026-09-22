@@ -86,6 +86,18 @@ export default function GameForm({
     update('cover_image', saved.relativePath)
   }
 
+  /** 选择 EXE / 脚本文件 */
+  const handleSelectLaunchFile = async () => {
+    const api = window.electronAPI
+    if (!api) return
+    const filters = form.launch_type === 'bat'
+      ? [{ name: '脚本文件', extensions: ['bat', 'cmd', 'ps1', 'vbs'] }]
+      : [{ name: '可执行文件', extensions: ['exe', 'com', 'msi'] }]
+    const r = await api.selectFile(filters)
+    if (r.canceled || !r.filePaths[0]) return
+    update('launch_path', r.filePaths[0])
+  }
+
   const handleLaunchTypeChange = (t: LaunchType) => {
     update('launch_type', t)
     // 切换类型时清空可能无效的路径
@@ -239,13 +251,29 @@ export default function GameForm({
 
           {/* 启动路径 */}
           <FormRow label="启动路径 *" error={errors.launch_path}>
-            <input
-              type="text"
-              placeholder={pathPlaceholder(form.launch_type)}
-              value={form.launch_path}
-              onChange={e => update('launch_path', e.target.value)}
-              style={{ ...inputStyle(!!errors.launch_path), fontFamily: 'monospace', fontSize: 12 }}
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder={pathPlaceholder(form.launch_type)}
+                value={form.launch_path}
+                onChange={e => update('launch_path', e.target.value)}
+                style={{ ...inputStyle(!!errors.launch_path), fontFamily: 'monospace', fontSize: 12, flex: 1 }}
+              />
+              {form.launch_type !== 'url' && (
+                <button
+                  onClick={handleSelectLaunchFile}
+                  type="button"
+                  title={form.launch_type === 'bat' ? '选择脚本文件' : '选择可执行文件'}
+                  style={{
+                    height: 36, padding: '0 16px', borderRadius: 6,
+                    border: '1px solid var(--border-strong)',
+                    background: 'var(--surface-1)',
+                    color: 'var(--text-primary)', fontSize: 12,
+                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
+                  }}
+                >浏览…</button>
+              )}
+            </div>
           </FormRow>
 
           {/* 启动参数 */}
@@ -266,7 +294,7 @@ export default function GameForm({
               onChange={e => update('group_id', e.target.value ? Number(e.target.value) : null)}
               style={selectStyle()}
             >
-              <option value="">未分组</option>
+              <option value="">全部</option>
               {groups.map(g => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}

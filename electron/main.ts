@@ -180,7 +180,12 @@ ipcMain.handle('db:games:reorder', (_e, groupId: number | null, items: { id: num
 ipcMain.handle('launcher:launch', (_e, gameId: number) => {
   const g = getGame(gameId)
   if (!g) return { success: false, message: '游戏不存在' }
-  return launch(g.launch_type, g.launch_path, g.launch_args ?? undefined)
+  const result = launch(g.launch_type, g.launch_path, g.launch_args ?? undefined)
+  if (result.success && g.launch_type === 'exe') {
+    // 启动 EXE 成功后，将 SZGame 窗口最小化到任务栏
+    mainWindow?.minimize()
+  }
+  return result
 })
 
 // —— Dialogs & Cover ——
@@ -224,6 +229,21 @@ ipcMain.handle('win:close', () => {
   mainWindow?.close()
 })
 ipcMain.handle('win:is-maximized', () => mainWindow?.isMaximized() ?? false)
+
+// ============================================================
+// Single Instance Lock
+// ============================================================
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  // 已有实例在运行，直接退出（second-instance 会被原实例触发 show）
+  app.quit()
+  process.exit(0)
+}
+
+app.on('second-instance', () => {
+  // 用户又双击了 exe / 运行了快捷方式 → 呼起已存在的主窗口
+  showMainWindow()
+})
 
 // ============================================================
 // Lifecycle

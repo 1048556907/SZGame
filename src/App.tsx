@@ -194,12 +194,6 @@ function AppInner() {
     refresh()
   }
 
-  // 排序：分组内游戏
-  const handleGamesReorder = async (groupId: number | null, items: { id: number; sort_order: number }[]) => {
-    await window.electronAPI?.gamesReorder(groupId, items)
-    refresh()
-  }
-
   // 排序：侧栏分组
   const handleGroupsReorder = async (items: { id: number; sort_order: number }[]) => {
     await window.electronAPI?.groupsReorder(items)
@@ -250,7 +244,6 @@ function AppInner() {
               onOpenGame={openDrawer}
               onLaunch={handleLaunch}
               onAddGame={openAddGame}
-              onReorder={handleGamesReorder}
             />
           )}
           {view === 'groups' && (
