@@ -50,14 +50,20 @@ html, body, #root {
   background: transparent;
 }
 
-body {
-  color: var(--text-primary);
+* {
+  box-sizing: border-box;
   font-family: "DM Sans", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   margin: 0;
   padding: 0;
+}
+
+/* 输入框必须可选中，否则 IME 中文输入法会卡住 */
+input, textarea, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ============================================================

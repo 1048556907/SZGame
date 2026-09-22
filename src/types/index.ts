@@ -20,6 +20,7 @@ export interface Game {
 export interface Group {
   id: number
   name: string
+  icon_image?: string | null
   sort_order: number
   game_count?: number
   created_at?: string
@@ -47,9 +48,10 @@ declare global {
 
       // groups
       groupsList: () => Promise<Group[]>
-      groupsCreate: (name: string) => Promise<{ ok: boolean; id?: number; error?: string }>
+      groupsCreate: (name: string, iconImage?: string | null) => Promise<{ ok: boolean; id?: number; error?: string }>
+      groupsUpdate: (id: number, name: string, iconImage: string | null) => Promise<{ ok: boolean; error?: string }>
       groupsRename: (id: number, name: string) => Promise<{ ok: boolean }>
-      groupsDelete: (id: number, deleteGames?: boolean) => Promise<{ ok: boolean }>
+      groupsDelete: (id: number) => Promise<{ ok: boolean }>
       groupsReorder: (items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
 
       // games
@@ -68,6 +70,7 @@ declare global {
         filePaths: string[]
       }>
       coverSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
+      groupIconSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
 
       // app control
       hideToTray: () => Promise<void>

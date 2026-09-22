@@ -22,7 +22,7 @@ function AppInner() {
   const [games, setGames] = useState<Game[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [settings, setSettings] = useState<AppSettings>({
-    window_minimize_behavior: 'tray',
+    window_minimize_behavior: 'taskbar',
     window_close_behavior: 'minimize-to-tray'
   })
   const [version, setVersion] = useState('')
@@ -132,7 +132,7 @@ function AppInner() {
       {/* 标题栏 */}
       <div className="titlebar">
         <img className="tb-logo" src="../images/logo.png" alt="" />
-        <span className="tb-title">SZGame</span>
+        <span className="tb-title">SZGame —— 游戏与程序管理盒子</span>
         <div className="tb-spacer" />
         <div className="tb-wincontrols">
           <div className="tb-btn" title="最小化"
@@ -173,7 +173,6 @@ function AppInner() {
               groups={groups}
               games={games}
               onRefresh={refresh}
-              onAddGame={openAddGame}
             />
           )}
           {view === 'settings' && (

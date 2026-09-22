@@ -99,7 +99,7 @@ export default function Sidebar({
             <input
               autoFocus
               type="text"
-              placeholder="分组名称"
+              placeholder="收藏夹名称"
               value={newGroupName}
               onChange={e => setNewGroupName(e.target.value)}
               onKeyDown={e => {
@@ -122,25 +122,17 @@ export default function Sidebar({
               }}
             />
           </div>
-        ) : (
-          <div className="sb-add-group" onClick={() => setShowCreateInput(true)}>
-            <span>＋</span>
-            <span>新建分组</span>
-          </div>
-        )}
+        ) : null}
+      </nav>
 
-        <div className="sb-section-label" style={{ paddingTop: 20 }}>管理</div>
-
+      <div className="sb-bottom">
         <div
           className={`sb-item ${view === 'groups' ? 'active' : ''}`}
           onClick={() => onViewChange('groups')}
         >
           <img src="../images/group.png" alt="" />
-          <span className="sb-label">分组管理</span>
+          <span className="sb-label">收藏夹</span>
         </div>
-      </nav>
-
-      <div className="sb-bottom">
         <div
           className={`sb-item ${view === 'settings' ? 'active' : ''}`}
           onClick={() => onViewChange('settings')}
@@ -153,7 +145,7 @@ export default function Sidebar({
   )
 }
 
-/** 可拖拽的侧栏分组项 */
+/** 可拖拽的侧栏收藏夹项 */
 function SortableSidebarGroup({
   group, count, active, onClick
 }: {
@@ -168,6 +160,10 @@ function SortableSidebarGroup({
     touchAction: 'none'
   }
 
+  const iconSrc = group.icon_image
+    ? `szgame://${group.icon_image}`
+    : '../images/default_group.png'
+
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <div
@@ -175,7 +171,20 @@ function SortableSidebarGroup({
         onClick={onClick}
         title="拖拽可排序"
       >
-        <span className="sb-ico" style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>#</span>
+        <img
+          src={iconSrc}
+          alt=""
+          style={{
+            width: 18, height: 18, borderRadius: 4,
+            objectFit: 'cover', flexShrink: 0,
+            filter: active ? 'none' : 'brightness(0.85)'
+          }}
+          onError={(e) => {
+            if ((e.target as HTMLImageElement).src !== '../images/default_group.png') {
+              (e.target as HTMLImageElement).src = '../images/default_group.png'
+            }
+          }}
+        />
         <span className="sb-label">{group.name}</span>
         <span className="sb-count">{count}</span>
       </div>

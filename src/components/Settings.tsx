@@ -33,11 +33,10 @@ export default function Settings({ version, settings, onSettingsChange }: Props)
         {/* 最小化 */}
         <SettingRow
           title="点击最小化按钮时"
-          desc="决定窗口最小化后的停靠位置"
-          value={minimizeValue}
+          desc="窗口最小化后停靠位置"
+          value="taskbar"
           options={[
-            { label: '任务栏', value: 'taskbar' },
-            { label: '系统托盘', value: 'tray' }
+            { label: '任务栏（固定）', value: 'taskbar' }
           ]}
           onChange={v => onSettingsChange('window.minimize.behavior', v)}
         />

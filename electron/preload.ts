@@ -14,9 +14,10 @@ export interface SZGameAPI {
 
   // groups
   groupsList: () => Promise<any[]>
-  groupsCreate: (name: string) => Promise<{ ok: boolean; id?: number; error?: string }>
+  groupsCreate: (name: string, iconImage?: string | null) => Promise<{ ok: boolean; id?: number; error?: string }>
+  groupsUpdate: (id: number, name: string, iconImage: string | null) => Promise<{ ok: boolean; error?: string }>
   groupsRename: (id: number, name: string) => Promise<{ ok: boolean }>
-  groupsDelete: (id: number, deleteGames?: boolean) => Promise<{ ok: boolean }>
+  groupsDelete: (id: number) => Promise<{ ok: boolean }>
   groupsReorder: (items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
 
   // games
@@ -35,6 +36,7 @@ export interface SZGameAPI {
     filePaths: string[]
   }>
   coverSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
+  groupIconSaveFromPath: (sourcePath: string) => Promise<{ relativePath: string }>
 
   // app control
   hideToTray: () => Promise<void>
@@ -56,9 +58,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   settingsSet:       (k, v) => ipcRenderer.invoke('db:settings:set', k, v),
 
   groupsList:        () => ipcRenderer.invoke('db:groups:list'),
-  groupsCreate:      (n) => ipcRenderer.invoke('db:groups:create', n),
+  groupsCreate:      (n, ic) => ipcRenderer.invoke('db:groups:create', n, ic),
+  groupsUpdate:      (i, n, ic) => ipcRenderer.invoke('db:groups:update', i, n, ic),
   groupsRename:      (i, n) => ipcRenderer.invoke('db:groups:rename', i, n),
-  groupsDelete:      (i, d) => ipcRenderer.invoke('db:groups:delete', i, d),
+  groupsDelete:      (i) => ipcRenderer.invoke('db:groups:delete', i),
   groupsReorder:     (it) => ipcRenderer.invoke('db:groups:reorder', it),
 
   gamesList:         (o) => ipcRenderer.invoke('db:games:list', o),
@@ -70,7 +73,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launch:            (id) => ipcRenderer.invoke('launcher:launch', id),
 
   selectFile:        (f) => ipcRenderer.invoke('dialog:selectFile', f),
-  coverSaveFromPath: (p) => ipcRenderer.invoke('cover:saveFromPath', p),
+  coverSaveFromPath:      (p) => ipcRenderer.invoke('cover:saveFromPath', p),
+  groupIconSaveFromPath:  (p) => ipcRenderer.invoke('groupIcon:saveFromPath', p),
 
   hideToTray:        () => ipcRenderer.invoke('app:hideToTray'),
   quit:              () => ipcRenderer.invoke('app:quit'),

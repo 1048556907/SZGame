@@ -7,7 +7,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 
 import { initDatabase, getSetting, setSetting, getAllSettings,
-  listGroups, createGroup, renameGroup, deleteGroup, reorderGroups,
+  listGroups, createGroup, renameGroup, deleteGroup, reorderGroups, updateGroup,
   listGames, createGame, updateGame, deleteGame, reorderGames, getGame,
   type GameCreateInput } from './db'
 import { launch } from './launcher'
@@ -140,15 +140,19 @@ ipcMain.handle('db:settings:set', (_e, key: string, value: string) => {
 
 // —— Groups ——
 ipcMain.handle('db:groups:list', () => listGroups())
-ipcMain.handle('db:groups:create', (_e, name: string) => {
-  try { return { ok: true, id: createGroup(name) } }
+ipcMain.handle('db:groups:create', (_e, name: string, iconImage: string | null = null) => {
+  try { return { ok: true, id: createGroup(name, iconImage) } }
+  catch (e: any) { return { ok: false, error: e.message } }
+})
+ipcMain.handle('db:groups:update', (_e, id: number, name: string, iconImage: string | null) => {
+  try { updateGroup(id, name, iconImage); return { ok: true } }
   catch (e: any) { return { ok: false, error: e.message } }
 })
 ipcMain.handle('db:groups:rename', (_e, id: number, name: string) => {
   renameGroup(id, name); return { ok: true }
 })
-ipcMain.handle('db:groups:delete', (_e, id: number, deleteGames = false) => {
-  deleteGroup(id, deleteGames); return { ok: true }
+ipcMain.handle('db:groups:delete', (_e, id: number) => {
+  deleteGroup(id); return { ok: true }
 })
 ipcMain.handle('db:groups:reorder', (_e, items: { id: number; sort_order: number }[]) => {
   reorderGroups(items); return { ok: true }
@@ -193,6 +197,11 @@ ipcMain.handle('cover:saveFromPath', (_e, sourcePath: string) => {
   const userDataDir = app.getPath('userData')
   initCoverManager(userDataDir)
   return saveFromPath(sourcePath)
+})
+ipcMain.handle('groupIcon:saveFromPath', (_e, sourcePath: string) => {
+  const userDataDir = app.getPath('userData')
+  initCoverManager(userDataDir)
+  return saveFromPath(sourcePath, 'group-icons')
 })
 
 // —— App control ——

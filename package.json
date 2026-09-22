@@ -52,6 +52,14 @@
         "nsis"
       ],
       "icon": "images/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SZGame",
+      "artifactName": "SZGame Setup ${version}.${ext}"
     }
   }
 }

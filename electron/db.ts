@@ -24,6 +24,7 @@ const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
+  icon_image TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -87,6 +88,9 @@ export async function initDatabase(userDataDir: string): Promise<void> {
   db.run(SCHEMA_SQL)
   db.run(SEED_SQL)
 
+  // ── 迁移：补齐旧版表缺失的列 ──
+  ensureColumn('groups', 'icon_image', 'TEXT')
+
   // 首次启动回写
   save()
 
@@ -106,12 +110,24 @@ function getDB(): Database {
   return db
 }
 
+/** 迁移辅助：检查并补齐缺失列 */
+function ensureColumn(table: string, col: string, colType: string) {
+  const result = getDB().exec(`PRAGMA table_info(${table})`)
+  if (result.length === 0) return
+  const cols = result[0].values.map((r: any[]) => r[1])
+  if (!cols.includes(col)) {
+    getDB().run(`ALTER TABLE ${table} ADD COLUMN ${col} ${colType}`)
+    console.log(`[db] migrated: added ${col} to ${table}`)
+  }
+}
+
 // ============================================================
 // Groups
 // ============================================================
 export interface GroupRow {
   id: number
   name: string
+  icon_image: string | null
   sort_order: number
   created_at: string
   game_count?: number
@@ -131,11 +147,16 @@ export function listGroups(): GroupRow[] {
   return rows
 }
 
-export function createGroup(name: string): number {
+export function createGroup(name: string, iconImage: string | null = null): number {
   const maxOrder = getDB().exec('SELECT COALESCE(MAX(sort_order), -1) FROM groups')[0]?.values[0][0] ?? -1
-  getDB().run('INSERT INTO groups (name, sort_order) VALUES (?, ?)', [name, (maxOrder as number) + 1])
+  getDB().run('INSERT INTO groups (name, icon_image, sort_order) VALUES (?, ?, ?)', [name, iconImage, (maxOrder as number) + 1])
   save()
   return getDB().exec('SELECT last_insert_rowid()')[0].values[0][0] as number
+}
+
+export function updateGroup(id: number, name: string, iconImage: string | null): void {
+  getDB().run('UPDATE groups SET name = ?, icon_image = ? WHERE id = ?', [name, iconImage, id])
+  save()
 }
 
 export function renameGroup(id: number, name: string): void {
@@ -143,10 +164,9 @@ export function renameGroup(id: number, name: string): void {
   save()
 }
 
-export function deleteGroup(id: number, deleteGames: boolean = false): void {
-  if (deleteGames) {
-    getDB().run('DELETE FROM games WHERE group_id = ?', [id])
-  }
+export function deleteGroup(id: number): void {
+  // 先把关联的游戏迁移到无分组（group_id = NULL）
+  getDB().run('UPDATE games SET group_id = NULL WHERE group_id = ?', [id])
   getDB().run('DELETE FROM groups WHERE id = ?', [id])
   save()
 }

@@ -18,18 +18,25 @@ export function initCoverManager(userDataDir: string): void {
 }
 
 /**
- * 将源文件复制到 covers/ 目录，返回相对路径
+ * 将源文件复制到 userDataDir/<subDir>/ 目录，返回相对路径
+ * @param sourcePath 源文件绝对路径
+ * @param subDir 子目录名，默认 'covers'。图标用 'group-icons'
  */
-export function saveFromPath(sourcePath: string): { relativePath: string } {
+export function saveFromPath(sourcePath: string, subDir: string = 'covers'): { relativePath: string } {
+  const rootDir = path.dirname(coversDir) // userDataDir
+  const targetDir = path.join(rootDir, subDir)
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true })
+  }
   const ext = path.extname(sourcePath) || '.png'
   const hash = crypto.randomBytes(8).toString('hex')
   const filename = `${hash}${ext}`
-  const destPath = path.join(coversDir, filename)
+  const destPath = path.join(targetDir, filename)
 
   fs.copyFileSync(sourcePath, destPath)
 
   // 用正斜杠存相对路径，跨平台友好
-  return { relativePath: `covers/${filename}` }
+  return { relativePath: `${subDir}/${filename}` }
 }
 
 /**
