@@ -27,7 +27,13 @@ export default function GameDrawer({ game, groups, onClose, onLaunch, onEdit, on
   }
 
   const groupName = groups.find(g => g.id === game.group_id)?.name ?? '未分组'
-  const coverUrl = game.cover_image ? `szgame://${game.cover_image}` : null
+  const coverUrl = game.cover_image
+    ? game.cover_image.startsWith('data:')
+      ? game.cover_image                                              // base64 data URI
+      : game.cover_image.startsWith('http')
+        ? game.cover_image                                            // 历史遗留 Steam CDN URL
+        : `szgame://${game.cover_image}`                              // 历史遗留本地文件路径
+    : null
 
   return (
     <>
