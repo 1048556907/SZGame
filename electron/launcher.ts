@@ -61,6 +61,31 @@ export function isProcessRunning(exePath: string): boolean {
   return running.has(name)
 }
 
+/** 构造 PowerShell Start-Process -Verb RunAs 命令并以 EncodedCommand（UTF-16 LE Base64）执行
+ *  为什么用 EncodedCommand：避免内联 -Command 在中文 Windows 上被 GBK 代码页解析导致路径乱码 */
+function spawnRunAs(psCmd: string): void {
+  const utf16le = Buffer.from(psCmd, 'utf16le')
+  const encoded = utf16le.toString('base64')
+  const child = spawn('powershell.exe', ['-NoProfile', '-EncodedCommand', encoded], {
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  })
+  let stderr = ''
+  child.stderr?.on('data', d => { stderr += d.toString('utf-8') })
+  child.stdout?.on('data', d => { /* Start-Process 无 stdout */ })
+  child.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`[launcher] RunAs PowerShell exit code=${code}: ${stderr || '(no stderr)'}`)
+      console.error(`[launcher] Failed command: ${psCmd}`)
+    }
+  })
+  child.on('error', (err) => {
+    console.error(`[launcher] RunAs spawn error: ${err.message}`)
+  })
+  child.unref()
+}
+
 export function launch(
   launchType: 'exe' | 'bat' | 'url',
   launchPath: string,
@@ -81,16 +106,13 @@ export function launch(
         }
         const args = launchArgs ? splitArgs(launchArgs) : []
         if (needsAdmin) {
-          // PowerShell Start-Process -Verb RunAs 触发 UAC 提权
-          // 用 Single-quoting 包裹路径，避免 PowerShell 解析问题
+          // RunAs：用 PowerShell Start-Process -Verb RunAs 触发 UAC
+          // 路径和参数都用 single-quoting 包裹，防止 PowerShell 解析转义
+          const escapedPath = launchPath.replace(/'/g, "''")
           const psCmd = args.length
-            ? `Start-Process -FilePath '${launchPath.replace(/'/g, "''")}' -Verb RunAs -ArgumentList '${args.map(a => a.replace(/'/g, "''")).join("','")}'`
-            : `Start-Process -FilePath '${launchPath.replace(/'/g, "''")}' -Verb RunAs`
-          spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: false
-          }).unref()
+            ? `Start-Process -FilePath '${escapedPath}' -Verb RunAs -ArgumentList ${args.map(a => `'${a.replace(/'/g, "''")}'`).join(',')}`
+            : `Start-Process -FilePath '${escapedPath}' -Verb RunAs`
+          spawnRunAs(psCmd)
         } else {
           spawn(launchPath, args, {
             detached: true,
@@ -103,10 +125,9 @@ export function launch(
       }
       case 'bat': {
         if (needsAdmin) {
-          const psCmd = `Start-Process -FilePath 'cmd.exe' -Verb RunAs -ArgumentList '/c "${launchPath}${launchArgs ? ' ' + launchArgs : ''}"'`
-          spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], {
-            detached: true, stdio: 'ignore', windowsHide: false
-          }).unref()
+          const escaped = launchPath.replace(/'/g, "''")
+          const psCmd = `Start-Process -FilePath 'cmd.exe' -Verb RunAs -ArgumentList '/c "${escaped}${launchArgs ? ' ' + launchArgs : ''}"'`
+          spawnRunAs(psCmd)
         } else {
           const args = ['/c', launchPath]
           if (launchArgs) args.push(...splitArgs(launchArgs))

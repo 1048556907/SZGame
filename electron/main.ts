@@ -271,7 +271,9 @@ ipcMain.handle('db:games:reorder', (_e, groupId: number | null, items: { id: num
 ipcMain.handle('launcher:launch', (_e, gameId: number) => {
   const g = getGame(gameId)
   if (!g) return { success: false, message: '游戏不存在' }
-  const result = launch(g.launch_type, g.launch_path, g.launch_args ?? undefined, g.needs_admin === 1)
+  // 防御性 needs_admin：兼容 DB INTEGER 1/0、前端传入 true/false、迁移前 undefined
+  const needsAdmin = Boolean(g.needs_admin)
+  const result = launch(g.launch_type, g.launch_path, g.launch_args ?? undefined, needsAdmin)
   if (result.success && g.launch_type === 'exe') {
     // 启动 EXE 成功后，将 SZGame 窗口最小化到任务栏
     mainWindow?.minimize()

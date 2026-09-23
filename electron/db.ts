@@ -20,6 +20,10 @@ let dbPath: string = ''
 // ============================================================
 // Schema & Seeds
 // ============================================================
+
+/** 当前 DB schema 版本 —— 每次加新列/改表升级这个数字 */
+const SCHEMA_VERSION = 2
+
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,9 +120,12 @@ export async function initDatabase(userDataDir: string): Promise<void> {
     db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('db.groups.initialized', '1')")
   }
 
-  // ── 迁移：补齐旧版表缺失的列 ──
-  ensureColumn('groups', 'icon_image', 'TEXT')
-  ensureColumn('games', 'needs_admin', 'INTEGER NOT NULL DEFAULT 0')
+  // ── Schema version 集中迁移 ──
+  const version = Number(getSetting('db.schema.version') ?? '1')
+  if (version < SCHEMA_VERSION) {
+    runMigrations(version, SCHEMA_VERSION)
+    setSetting('db.schema.version', String(SCHEMA_VERSION))
+  }
 
   // 首次启动回写
   save()
@@ -148,6 +155,18 @@ function ensureColumn(table: string, col: string, colType: string) {
     getDB().run(`ALTER TABLE ${table} ADD COLUMN ${col} ${colType}`)
     console.log(`[db] migrated: added ${col} to ${table}`)
   }
+}
+
+/** 集中式 schema 迁移 —— 按版本号递增执行 */
+function runMigrations(fromVersion: number, toVersion: number) {
+  console.log(`[db] runMigrations ${fromVersion} → ${toVersion}`)
+  if (fromVersion < 2) {
+    // v1 → v2：给旧 DB 补齐 icon_image + needs_admin 列
+    ensureColumn('groups', 'icon_image', 'TEXT')
+    ensureColumn('games', 'needs_admin', 'INTEGER NOT NULL DEFAULT 0')
+  }
+  // 未来迁移：
+  // if (fromVersion < 3) { ... }
 }
 
 // ============================================================
