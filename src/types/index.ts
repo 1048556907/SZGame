@@ -11,6 +11,7 @@ export interface Game {
   launch_type: LaunchType
   launch_args?: string
   cover_image?: string | null
+  needs_admin?: boolean
   group_id: number | null
   sort_order: number
   created_at: string

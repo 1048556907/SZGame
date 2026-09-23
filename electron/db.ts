@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS games (
   launch_type TEXT NOT NULL CHECK(launch_type IN ('exe','bat','url')),
   launch_args TEXT,
   cover_image TEXT,
+  needs_admin INTEGER NOT NULL DEFAULT 0,
   group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -117,6 +118,7 @@ export async function initDatabase(userDataDir: string): Promise<void> {
 
   // ── 迁移：补齐旧版表缺失的列 ──
   ensureColumn('groups', 'icon_image', 'TEXT')
+  ensureColumn('games', 'needs_admin', 'INTEGER NOT NULL DEFAULT 0')
 
   // 首次启动回写
   save()
@@ -217,6 +219,7 @@ export interface GameRow {
   launch_type: 'exe' | 'bat' | 'url'
   launch_args: string | null
   cover_image: string | null
+  needs_admin: number
   group_id: number | null
   sort_order: number
   created_at: string
@@ -229,6 +232,7 @@ export interface GameCreateInput {
   launch_type: 'exe' | 'bat' | 'url'
   launch_args?: string
   cover_image?: string | null
+  needs_admin?: boolean
   group_id: number | null
 }
 
@@ -259,11 +263,11 @@ export function listGames(opts?: {
 }
 
 export function createGame(input: GameCreateInput): number {
-  const { name, launch_path, launch_type, launch_args = '', cover_image = null, group_id } = input
+  const { name, launch_path, launch_type, launch_args = '', cover_image = null, needs_admin = false, group_id } = input
   getDB().run(
-    `INSERT INTO games (name, launch_path, launch_type, launch_args, cover_image, group_id, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM games WHERE group_id = ?))`,
-    [name, launch_path, launch_type, launch_args, cover_image, group_id, group_id]
+    `INSERT INTO games (name, launch_path, launch_type, launch_args, cover_image, needs_admin, group_id, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM games WHERE group_id = ?))`,
+    [name, launch_path, launch_type, launch_args, cover_image, needs_admin ? 1 : 0, group_id, group_id]
   )
   save()
   return getDB().exec('SELECT last_insert_rowid()')[0].values[0][0] as number

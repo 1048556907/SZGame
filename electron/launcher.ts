@@ -64,7 +64,8 @@ export function isProcessRunning(exePath: string): boolean {
 export function launch(
   launchType: 'exe' | 'bat' | 'url',
   launchPath: string,
-  launchArgs?: string
+  launchArgs?: string,
+  needsAdmin: boolean = false
 ): LaunchResult {
   try {
     switch (launchType) {
@@ -79,23 +80,40 @@ export function launch(
           }
         }
         const args = launchArgs ? splitArgs(launchArgs) : []
-        spawn(launchPath, args, {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false
-        }).unref()
-        // 启动后刷新进程缓存（让下一次检测生效）
+        if (needsAdmin) {
+          // PowerShell Start-Process -Verb RunAs 触发 UAC 提权
+          // 用 Single-quoting 包裹路径，避免 PowerShell 解析问题
+          const psCmd = args.length
+            ? `Start-Process -FilePath '${launchPath.replace(/'/g, "''")}' -Verb RunAs -ArgumentList '${args.map(a => a.replace(/'/g, "''")).join("','")}'`
+            : `Start-Process -FilePath '${launchPath.replace(/'/g, "''")}' -Verb RunAs`
+          spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: false
+          }).unref()
+        } else {
+          spawn(launchPath, args, {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: false
+          }).unref()
+        }
         invalidateProcessCache()
         return { success: true }
       }
       case 'bat': {
-        const args = ['/c', launchPath]
-        if (launchArgs) args.push(...splitArgs(launchArgs))
-        spawn('cmd.exe', args, {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false
-        }).unref()
+        if (needsAdmin) {
+          const psCmd = `Start-Process -FilePath 'cmd.exe' -Verb RunAs -ArgumentList '/c "${launchPath}${launchArgs ? ' ' + launchArgs : ''}"'`
+          spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], {
+            detached: true, stdio: 'ignore', windowsHide: false
+          }).unref()
+        } else {
+          const args = ['/c', launchPath]
+          if (launchArgs) args.push(...splitArgs(launchArgs))
+          spawn('cmd.exe', args, {
+            detached: true, stdio: 'ignore', windowsHide: false
+          }).unref()
+        }
         return { success: true }
       }
       case 'url': {

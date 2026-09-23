@@ -17,6 +17,7 @@ interface FormState {
   launch_type: LaunchType
   launch_args: string
   cover_image: string | null
+  needs_admin: boolean
   group_id: number | null
 }
 
@@ -26,6 +27,7 @@ const emptyForm: FormState = {
   launch_type: 'exe',
   launch_args: '',
   cover_image: null,
+  needs_admin: false,
   group_id: null
 }
 
@@ -49,6 +51,7 @@ export default function GameForm({
         launch_type: editing.launch_type,
         launch_args: editing.launch_args ?? '',
         cover_image: editing.cover_image ?? null,
+        needs_admin: !!editing.needs_admin,
         group_id: editing.group_id
       })
     } else {
@@ -120,6 +123,7 @@ export default function GameForm({
           launch_type: form.launch_type,
           launch_args: form.launch_args || undefined,
           cover_image: form.cover_image,
+          needs_admin: form.needs_admin,
           group_id: form.group_id
         })
       } else {
@@ -129,6 +133,7 @@ export default function GameForm({
           launch_type: form.launch_type,
           launch_args: form.launch_args || undefined,
           cover_image: form.cover_image,
+          needs_admin: form.needs_admin,
           group_id: form.group_id
         })
       }
@@ -314,6 +319,38 @@ export default function GameForm({
               style={{ ...inputStyle(false), fontFamily: 'monospace', fontSize: 12 }}
             />
           </FormRow>
+
+          {/* 以管理员身份运行 */}
+          {form.launch_type !== 'url' && (
+            <FormRow label="以管理员身份运行" hint="启动时弹出 UAC 提权框，适用于反作弊 / Program Files 下的游戏">
+              <div
+                onClick={() => update('needs_admin', !form.needs_admin)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 14px', borderRadius: 8,
+                  border: '1px solid var(--border-strong)',
+                  background: 'var(--surface-1)',
+                  cursor: 'pointer', userSelect: 'none'
+                }}
+              >
+                <div style={{
+                  width: 36, height: 20, borderRadius: 10,
+                  background: form.needs_admin ? 'var(--accent)' : 'var(--surface-2)',
+                  position: 'relative', transition: 'background 0.15s'
+                }}>
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 8,
+                    background: '#fff', position: 'absolute', top: 2,
+                    left: form.needs_admin ? 18 : 2,
+                    transition: 'left 0.15s'
+                  }} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {form.needs_admin ? '启动时弹出 UAC 以管理员权限运行' : '普通用户权限启动'}
+                </div>
+              </div>
+            </FormRow>
+          )}
 
           {/* 所属分组 */}
           <FormRow label="所属分组">
