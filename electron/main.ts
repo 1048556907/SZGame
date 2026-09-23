@@ -48,7 +48,9 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 // ── 数据目录解析：便携模式优先（EXE 同级 ./data/），不可写则 fallback 到 APPDATA
 //  dev 模式直接用 APPDATA（process.execPath=node_modules/electron/dist/Electron.exe，没意义）
-//  同时处理 legacy DB 搬移（62a98ab 之前版本的 DB 都在 APPDATA/SZGame/szgame.db）
+//  同时处理 legacy DB 搬移：
+//    来源 1 (优先)：{exe}/szgame.db —— 旧版 DATA_DIR="" 遗留（如 D:\game\SZGame\szgame.db）
+//    来源 2 (兜底)：%APPDATA%/SZGame/szgame.db —— 62a98ab 之前的版本
 function resolveUserDataDir(): string {
   // dev 模式：直接用 Electron 默认 userData
   if (!app.isPackaged) {
@@ -60,17 +62,27 @@ function resolveUserDataDir(): string {
   const exeDir = path.dirname(process.execPath)
   const portableDir = path.join(exeDir, 'data')
   const portableDB = path.join(portableDir, 'szgame.db')
-  const legacyDB = path.join(app.getPath('userData'), 'szgame.db')
+
+  // legacy DB 来源（按优先级）：{exe}/szgame.db > APPDATA/szgame.db
+  const legacySources = [
+    path.join(exeDir, 'szgame.db'),
+    path.join(app.getPath('userData'), 'szgame.db'),
+  ]
 
   try {
     fs.mkdirSync(portableDir, { recursive: true })
     fs.writeFileSync(path.join(portableDir, '.write_test'), 'ok')
     fs.unlinkSync(path.join(portableDir, '.write_test'))
 
-    // 便携目录可写 —— 检查 legacy DB 是否需要搬
-    if (!fs.existsSync(portableDB) && fs.existsSync(legacyDB)) {
-      fs.copyFileSync(legacyDB, portableDB)
-      console.info('[app] migrated legacy DB from APPDATA → portable:', portableDB)
+    // 便携目录可写 —— 遍历 legacy 来源，找到第一个存在的 → 搬过去
+    if (!fs.existsSync(portableDB)) {
+      for (const legacyDB of legacySources) {
+        if (legacyDB !== portableDB && fs.existsSync(legacyDB)) {
+          fs.copyFileSync(legacyDB, portableDB)
+          console.info('[app] migrated legacy DB:', legacyDB, '→', portableDB)
+          break
+        }
+      }
     }
     console.info('[app] using portable data dir:', portableDir)
     return portableDir
