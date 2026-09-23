@@ -46,16 +46,34 @@ const isDev = !app.isPackaged
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 
-// ── 便携模式：数据目录放在 EXE 同级的 ./data/ 下 ──
+// ── 数据目录解析：便携模式优先（EXE 同级 ./data/），不可写则 fallback 到 APPDATA
+//  dev 模式直接用 APPDATA（process.execPath=node_modules/electron/dist/Electron.exe，没意义）
+//  同时处理 legacy DB 搬移（62a98ab 之前版本的 DB 都在 APPDATA/SZGame/szgame.db）
 function resolveUserDataDir(): string {
+  // dev 模式：直接用 Electron 默认 userData
+  if (!app.isPackaged) {
+    const devDir = app.getPath('userData')
+    console.info('[app] dev mode, using userData:', devDir)
+    return devDir
+  }
+
   const exeDir = path.dirname(process.execPath)
-  const dataDir = path.join(exeDir, 'data')
+  const portableDir = path.join(exeDir, 'data')
+  const portableDB = path.join(portableDir, 'szgame.db')
+  const legacyDB = path.join(app.getPath('userData'), 'szgame.db')
+
   try {
-    fs.mkdirSync(dataDir, { recursive: true })
-    fs.writeFileSync(path.join(dataDir, '.write_test'), 'ok')
-    fs.unlinkSync(path.join(dataDir, '.write_test'))
-    console.info('[app] using portable data dir:', dataDir)
-    return dataDir
+    fs.mkdirSync(portableDir, { recursive: true })
+    fs.writeFileSync(path.join(portableDir, '.write_test'), 'ok')
+    fs.unlinkSync(path.join(portableDir, '.write_test'))
+
+    // 便携目录可写 —— 检查 legacy DB 是否需要搬
+    if (!fs.existsSync(portableDB) && fs.existsSync(legacyDB)) {
+      fs.copyFileSync(legacyDB, portableDB)
+      console.info('[app] migrated legacy DB from APPDATA → portable:', portableDB)
+    }
+    console.info('[app] using portable data dir:', portableDir)
+    return portableDir
   } catch {
     const fallback = app.getPath('userData')
     console.warn('[app] portable dir not writable, fallback to:', fallback)
@@ -365,6 +383,8 @@ app.on('second-instance', () => {
 // Lifecycle
 // ============================================================
 app.whenReady().then(async () => {
+  // ↓↓↓ 这一行 commit 62a98ab 漏了，导致 DATA_DIR 永远是空串 ↓↓↓
+  DATA_DIR = resolveUserDataDir()
   const userDataDir = DATA_DIR
   const coversDir = path.join(userDataDir, 'covers')
 
