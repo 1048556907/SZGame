@@ -123,6 +123,7 @@ export default function GameDrawer({ game, groups, onClose, onLaunch, onEdit, on
             <DrawerField label="启动参数" value={game.launch_args} mono />
           )}
           <DrawerField label="启动类型" value={game.launch_type.toUpperCase()} />
+          <DrawerField label="提权运行" value={game.needs_admin ? '是' : '否'} />
           <DrawerField label="所属分组" value={groupName} />
           <DrawerField label="添加时间" value={game.created_at?.slice(0, 19) ?? '-'} />
         </div>

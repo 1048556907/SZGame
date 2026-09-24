@@ -320,9 +320,9 @@ export default function GameForm({
             />
           </FormRow>
 
-          {/* 以管理员身份运行 */}
+          {/* 提权运行 toggle */}
           {form.launch_type !== 'url' && (
-            <FormRow label="以管理员身份运行" hint="启动时弹出 UAC 提权框，适用于反作弊 / Program Files 下的游戏">
+            <FormRow label="提权运行" hint="以管理员权限启动游戏，适用于反作弊 / Program Files 下的程序">
               <div
                 onClick={() => update('needs_admin', !form.needs_admin)}
                 style={{
@@ -346,7 +346,7 @@ export default function GameForm({
                   }} />
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {form.needs_admin ? '启动时弹出 UAC 以管理员权限运行' : '普通用户权限启动'}
+                  {form.needs_admin ? '以管理员权限启动' : '普通权限启动'}
                 </div>
               </div>
             </FormRow>
