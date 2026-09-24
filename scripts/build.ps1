@@ -42,26 +42,34 @@ foreach ($dir in @("dist", "dist-electron", "release")) {
 }
 Done "Cleaned dist, dist-electron, release"
 
-# --- 3. TypeScript ---
+# --- 3. Bump version ---
+Step "Bump version (patch)"
+$oldVersion = (Get-Content "package.json" | ConvertFrom-Json).version
+npm version patch --no-git-tag-version 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) { Fail "npm version patch failed" }
+$newVersion = (Get-Content "package.json" | ConvertFrom-Json).version
+Done "$oldVersion -> $newVersion"
+
+# --- 4. TypeScript ---
 Step "TypeScript type check"
 npx tsc --noEmit
 if ($LASTEXITCODE -ne 0) { Fail "tsc failed" }
 Done "tsc: 0 errors"
 
-# --- 4. Vite build ---
+# --- 5. Vite build ---
 Step "Vite build"
 npx vite build
 if ($LASTEXITCODE -ne 0) { Fail "vite build failed" }
 Done "vite build ok"
 
-# --- 5. electron-builder ---
+# --- 6. electron-builder ---
 Step "electron-builder NSIS"
 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
 npx electron-builder --win
 if ($LASTEXITCODE -ne 0) { Fail "electron-builder failed" }
 Done "electron-builder ok"
 
-# --- 6. Verify artifacts ---
+# --- 7. Verify artifacts ---
 Step "Artifacts"
 $setup = Get-ChildItem "release" -Filter "*.exe" | Where-Object { $_.Name -notlike "__uninstaller*" }
 if (-not $setup) { Fail "No .exe found in release/" }
