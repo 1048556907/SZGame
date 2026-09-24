@@ -58,7 +58,9 @@ CREATE TABLE IF NOT EXISTS settings (
 const DEFAULT_SETTINGS_SQL = `
 INSERT OR IGNORE INTO settings (key, value) VALUES
   ('window.minimize.behavior', 'tray'),
-  ('window.close.behavior', 'minimize-to-tray');
+  ('window.close.behavior', 'minimize-to-tray'),
+  ('app.update.auto.check', 'true'),
+  ('app.update.force', 'false');
 `
 
 // 首次启动时插入默认收藏夹（可修改/删除）

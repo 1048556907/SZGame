@@ -5,6 +5,7 @@ import GroupManager from './components/GroupManager'
 import Settings from './components/Settings'
 import GameDrawer from './components/GameDrawer'
 import GameForm from './components/GameForm'
+import UpdateDialog from './components/UpdateDialog'
 import { ToastProvider, useToast } from './components/Toast'
 import type { Game, Group, AppSettings } from './types'
 
@@ -108,9 +109,16 @@ function AppInner() {
   const [groups, setGroups] = useState<Group[]>([])
   const [settings, setSettings] = useState<AppSettings>({
     window_minimize_behavior: 'taskbar',
-    window_close_behavior: 'minimize-to-tray'
+    window_close_behavior: 'minimize-to-tray',
+    update_auto_check: true,
+    update_force: false
   })
   const [version, setVersion] = useState('')
+
+  // 更新对话框状态
+  const [updateDialog, setUpdateDialog] = useState<{ open: boolean; remoteTag: string; exeUrl?: string }>({
+    open: false, remoteTag: ''
+  })
 
   // 订阅 maximize 状态变化
   useEffect(() => {
@@ -120,6 +128,27 @@ function AppInner() {
     api.winIsMaximized?.().then(setIsMaximized).catch(() => {})
     return unsubscribe
   }, [])
+
+  // 订阅主进程更新事件
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api) return
+    const offAvailable = api.onUpdateAvailable?.((info: { remoteTag: string }) => {
+      // 手动点检查更新时 main 没传 exeUrl，需要补一次 check
+      api.updaterCheck?.().then((r) => {
+        if (r.hasUpdate && r.remoteTag) {
+          setUpdateDialog({ open: true, remoteTag: r.remoteTag, exeUrl: r.exeUrl })
+        }
+      }).catch(() => {})
+      // 自动检查的 flow 里 main 没传 exeUrl 也会走这里，但 updater.ts 的 startAutoUpdateFlow
+      // 发的 event 不带 exeUrl —— 所以一律补一次 check 拿完整数据
+    })
+    const offFailed = api.onUpdateInstallFailed?.((info: { error: string }) => {
+      toast.showError(`更新失败: ${info.error}`)
+      setUpdateDialog(s => ({ ...s, open: false }))
+    })
+    return () => { offAvailable?.(); offFailed?.() }
+  }, [toast])
 
   // GameForm state
   const [formOpen, setFormOpen] = useState(false)
@@ -142,7 +171,9 @@ function AppInner() {
       const all = await api.settingsGetAll()
       setSettings({
         window_minimize_behavior: (all['window.minimize.behavior'] as any) ?? 'tray',
-        window_close_behavior: (all['window.close.behavior'] as any) ?? 'minimize-to-tray'
+        window_close_behavior: (all['window.close.behavior'] as any) ?? 'minimize-to-tray',
+        update_auto_check: all['app.update.auto.check'] !== 'false',
+        update_force: all['app.update.force'] === 'true'
       })
     } catch (e) {
       toast.showError('数据加载失败，请查看控制台')
@@ -177,8 +208,38 @@ function AppInner() {
       const next = { ...prev } as any
       if (key === 'window.minimize.behavior') next.window_minimize_behavior = value
       if (key === 'window.close.behavior') next.window_close_behavior = value
+      if (key === 'app.update.auto.check') next.update_auto_check = value !== 'false'
+      if (key === 'app.update.force') next.update_force = value === 'true'
       return next
     })
+  }
+
+  // 手动检查更新（设置页按钮）
+  const handleManualCheck = async () => {
+    const api = window.electronAPI
+    if (!api) return
+    const r = await api.updaterCheck()
+    if (r.hasUpdate && r.remoteTag) {
+      if (settings.update_force && r.exeUrl) {
+        // 强制更新已开启 → 直接进入下载链，不弹窗
+        await api.updaterInstall(r.remoteTag, r.exeUrl)
+      } else {
+        setUpdateDialog({ open: true, remoteTag: r.remoteTag, exeUrl: r.exeUrl })
+      }
+    } else {
+      toast.showSuccess(`当前已是最新版本 v${r.localVersion}`)
+    }
+  }
+
+  // 更新对话框 —— 立即更新
+  const handleInstallUpdate = async () => {
+    const api = window.electronAPI
+    if (!api || !updateDialog.remoteTag || !updateDialog.exeUrl) return
+    await api.updaterInstall(updateDialog.remoteTag, updateDialog.exeUrl)
+  }
+
+  const handleUpdateLater = () => {
+    setUpdateDialog({ open: false, remoteTag: '' })
   }
 
   // GameForm
@@ -259,6 +320,7 @@ function AppInner() {
               version={version}
               settings={settings}
               onSettingsChange={handleSettingsChange}
+              onManualCheck={handleManualCheck}
             />
           )}
         </main>
@@ -321,6 +383,15 @@ function AppInner() {
           </div>
         </div>
       )}
+
+      {/* 更新提示弹窗 */}
+      <UpdateDialog
+        open={updateDialog.open}
+        currentVersion={version}
+        newVersion={updateDialog.remoteTag}
+        onUpdate={handleInstallUpdate}
+        onLater={handleUpdateLater}
+      />
     </div>
   )
 }

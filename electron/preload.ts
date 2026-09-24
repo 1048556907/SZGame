@@ -63,6 +63,14 @@ export interface SZGameAPI {
   winClose:          () => Promise<void>
   winIsMaximized:    () => Promise<boolean>
   onMaximizeChange:  (cb: (maximized: boolean) => void) => () => void
+
+  // updater
+  updaterCheck: () => Promise<{ hasUpdate: boolean; remoteTag?: string; localVersion: string; exeUrl?: string }>
+  updaterInstall: (remoteTag: string, exeUrl: string) => Promise<void>
+  onUpdateAvailable:  (cb: (info: { remoteTag: string }) => void) => () => void
+  onUpdateProgress:   (cb: (info: { bytes: number; total: number }) => void) => () => void
+  onUpdateInstalled:  (cb: (info: { exePath?: string }) => void) => () => void
+  onUpdateInstallFailed: (cb: (info: { error: string }) => void) => () => void
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -108,5 +116,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_e: unknown, v: boolean) => cb(v)
     ipcRenderer.on('win:maximized', handler)
     return () => ipcRenderer.removeListener('win:maximized', handler)
+  },
+
+  // updater
+  updaterCheck: () => ipcRenderer.invoke('updater:check'),
+  updaterInstall: (tag, url) => ipcRenderer.invoke('updater:install', tag, url),
+  onUpdateAvailable: (cb) => {
+    const handler = (_e: unknown, info: any) => cb(info)
+    ipcRenderer.on('update:available', handler)
+    return () => ipcRenderer.removeListener('update:available', handler)
+  },
+  onUpdateProgress: (cb) => {
+    const handler = (_e: unknown, info: any) => cb(info)
+    ipcRenderer.on('update:progress', handler)
+    return () => ipcRenderer.removeListener('update:progress', handler)
+  },
+  onUpdateInstalled: (cb) => {
+    const handler = (_e: unknown, info: any) => cb(info)
+    ipcRenderer.on('update:installed', handler)
+    return () => ipcRenderer.removeListener('update:installed', handler)
+  },
+  onUpdateInstallFailed: (cb) => {
+    const handler = (_e: unknown, info: any) => cb(info)
+    ipcRenderer.on('update:install-failed', handler)
+    return () => ipcRenderer.removeListener('update:install-failed', handler)
   }
 } satisfies SZGameAPI)

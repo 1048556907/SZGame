@@ -28,6 +28,7 @@ import { initDatabase, getSetting, setSetting, getAllSettings,
 import { launch } from './launcher'
 import { initCoverManager, saveFromPath } from './cover-manager'
 import { initRemoteCover, searchCovers, downloadCover, downloadAsBase64 } from './remote-cover'
+import { startAutoUpdateFlow, checkForUpdate, triggerUpdateChain } from './updater'
 
 // ============================================================
 // State
@@ -360,6 +361,21 @@ ipcMain.handle('app:hideToTray', () => {
 })
 ipcMain.handle('app:quit', () => { app.isQuiting = true; app.quit() })
 
+// —— Updater ——
+ipcMain.handle('updater:check', async () => {
+  let localVersion = '0.0.0'
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8'))
+    localVersion = pkg.version || '0.0.0'
+  } catch {}
+  const result = await checkForUpdate(localVersion)
+  return { hasUpdate: result.hasUpdate, remoteTag: result.remoteTag, localVersion: result.localVersion, exeUrl: result.exeUrl }
+})
+
+ipcMain.handle('updater:install', async (_e, remoteTag: string, exeUrl: string) => {
+  await triggerUpdateChain(remoteTag, exeUrl, mainWindow)
+})
+
 // —— Window control (for frameless titlebar) ——
 ipcMain.handle('win:minimize', () => {
   mainWindow?.minimize()
@@ -435,6 +451,12 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow()
     else showMainWindow()
+  })
+
+  // 启动时自动更新检查
+  // 必须等 renderer 加载完再触发，否则 update:available 事件会被静默丢弃（IPC 时序竞争）
+  mainWindow.webContents.once('did-finish-load', () => {
+    startAutoUpdateFlow(mainWindow).catch(e => console.warn('[updater] auto flow error:', e))
   })
 })
 

@@ -33,6 +33,8 @@ export type CloseBehavior = 'exit' | 'minimize-to-tray'
 export interface AppSettings {
   window_minimize_behavior: MinimizeBehavior
   window_close_behavior: CloseBehavior
+  update_auto_check: boolean
+  update_force: boolean
 }
 
 /** window.electronAPI 类型声明 — 与 electron/preload.ts 对齐 */
@@ -98,6 +100,14 @@ declare global {
       winClose:          () => Promise<void>
       winIsMaximized:    () => Promise<boolean>
       onMaximizeChange:  (cb: (maximized: boolean) => void) => () => void
+
+      // updater
+      updaterCheck: () => Promise<{ hasUpdate: boolean; remoteTag?: string; localVersion: string; exeUrl?: string }>
+      updaterInstall: (remoteTag: string, exeUrl: string) => Promise<void>
+      onUpdateAvailable:  (cb: (info: { remoteTag: string }) => void) => () => void
+      onUpdateProgress:   (cb: (info: { bytes: number; total: number }) => void) => () => void
+      onUpdateInstalled:  (cb: (info?: { exePath?: string }) => void) => () => void
+      onUpdateInstallFailed: (cb: (info: { error: string }) => void) => () => void
     }
   }
 }

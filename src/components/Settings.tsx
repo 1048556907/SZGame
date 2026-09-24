@@ -1,15 +1,21 @@
+import { useState } from 'react'
 import type { AppSettings } from '../types'
 
 interface Props {
   version: string
   settings: AppSettings
   onSettingsChange: (key: string, value: string) => void
+  onManualCheck: () => Promise<void>
 }
 
-export default function Settings({ version, settings, onSettingsChange }: Props) {
+export default function Settings({ version, settings, onSettingsChange, onManualCheck }: Props) {
 
   const minimizeValue = settings.window_minimize_behavior
   const closeValue = settings.window_close_behavior
+  const autoCheck = settings.update_auto_check
+  const forceUpdate = settings.update_force
+
+  const [checking, setChecking] = useState(false)
 
   return (
     <div className="content-inner">
@@ -54,6 +60,60 @@ export default function Settings({ version, settings, onSettingsChange }: Props)
           ]}
           onChange={v => onSettingsChange('window.close.behavior', v)}
         />
+      </div>
+
+      {/* 自动更新 */}
+      <div style={{
+        background: 'var(--surface-1)', border: '1px solid var(--border)',
+        borderRadius: 14, marginBottom: 18, overflow: 'hidden'
+      }}>
+        <div style={{
+          padding: '16px 22px', borderBottom: '1px solid var(--border)',
+          fontSize: 13, fontWeight: 600
+        }}>自动更新</div>
+
+        {/* 启用自动检查 */}
+        <ToggleRow
+          title="启动时自动检查"
+          desc="每次启动时自动检测 Gitee Releases 是否有新版本"
+          checked={autoCheck}
+          onChange={v => onSettingsChange('app.update.auto.check', v ? 'true' : 'false')}
+        />
+
+        <div style={{ height: 1, background: 'var(--border)', margin: '0 22px' }} />
+
+        {/* 强制更新 */}
+        <ToggleRow
+          title="强制更新"
+          desc="检测到新版本后自动下载并静默安装，不弹窗提示"
+          checked={forceUpdate}
+          onChange={v => onSettingsChange('app.update.force', v ? 'true' : 'false')}
+        />
+
+        <div style={{ height: 1, background: 'var(--border)', margin: '0 22px' }} />
+
+        {/* 手动检查按钮 */}
+        <div style={{
+          padding: '16px 22px',
+          display: 'flex', alignItems: 'center', gap: 20
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>手动检查</div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 }}>
+              立即向 Gitee 发起一次版本检测
+            </div>
+          </div>
+          <button
+            onClick={async () => { setChecking(true); try { await onManualCheck() } finally { setChecking(false) } }}
+            disabled={checking}
+            style={{
+              height: 32, padding: '0 16px', borderRadius: 6, border: 'none',
+              background: checking ? 'var(--border)' : 'var(--accent)',
+              color: '#fff', cursor: checking ? 'default' : 'pointer',
+              fontSize: 12, fontWeight: 600
+            }}
+          >{checking ? '检查中…' : '检查更新'}</button>
+        </div>
       </div>
 
       {/* 关于 */}
@@ -125,6 +185,39 @@ function SettingRow({ title, desc, value, options, onChange }: {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+/** 一行开关 Toggle */
+function ToggleRow({ title, desc, checked, onChange }: {
+  title: string; desc: string; checked: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <div style={{
+      padding: '16px 22px',
+      display: 'flex', alignItems: 'center', gap: 20
+    }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 }}>{desc}</div>
+      </div>
+      <div
+        onClick={() => onChange(!checked)}
+        style={{
+          width: 38, height: 22, borderRadius: 11,
+          background: checked ? 'var(--accent)' : 'var(--border)',
+          cursor: 'pointer', position: 'relative', transition: 'background 0.2s'
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: 2,
+          left: checked ? 18 : 2,
+          width: 18, height: 18, borderRadius: 9,
+          background: '#fff', transition: 'left 0.2s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+        }} />
       </div>
     </div>
   )
