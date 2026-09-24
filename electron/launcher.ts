@@ -62,23 +62,23 @@ export function isProcessRunning(exePath: string): boolean {
 }
 
 /** 构造 PowerShell Start-Process -Verb RunAs 命令并以 EncodedCommand（UTF-16 LE Base64）执行
- *  为什么用 EncodedCommand：避免内联 -Command 在中文 Windows 上被 GBK 代码页解析导致路径乱码 */
+ *  为什么用 EncodedCommand：避免内联 -Command 在中文 Windows 上被 GBK 代码页解析导致路径乱码
+ *
+ *  spawn 选项说明：
+ *  - detached: false —— 不能用 detached=true，否则 PowerShell Start-Process 会静默失败（exit=0 但子进程没被拉起）
+ *  - stdio: 'ignore'  —— 让 PowerShell 完全脱离当前进程组
+ *  - windowsHide: true —— 避免一闪而过的 PowerShell 控制台窗口（detached:false 下依然生效）
+ */
 function spawnRunAs(psCmd: string): void {
   const utf16le = Buffer.from(psCmd, 'utf16le')
   const encoded = utf16le.toString('base64')
   const child = spawn('powershell.exe', ['-NoProfile', '-EncodedCommand', encoded], {
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+    stdio: 'ignore',
     windowsHide: true
   })
-  let stderr = ''
-  child.stderr?.on('data', d => { stderr += d.toString('utf-8') })
-  child.stdout?.on('data', d => { /* Start-Process 无 stdout */ })
   child.on('close', (code) => {
-    if (code !== 0) {
-      console.error(`[launcher] RunAs PowerShell exit code=${code}: ${stderr || '(no stderr)'}`)
-      console.error(`[launcher] Failed command: ${psCmd}`)
-    }
+    if (code !== 0) console.error(`[launcher] RunAs PowerShell exit=${code}`)
   })
   child.on('error', (err) => {
     console.error(`[launcher] RunAs spawn error: ${err.message}`)
@@ -95,7 +95,6 @@ export function launch(
   try {
     switch (launchType) {
       case 'exe': {
-        // 防重复启动检测
         const name = path.basename(launchPath)
         if (isProcessRunning(launchPath)) {
           return {
@@ -113,12 +112,14 @@ export function launch(
             ? `Start-Process -FilePath '${escapedPath}' -Verb RunAs -ArgumentList ${args.map(a => `'${a.replace(/'/g, "''")}'`).join(',')}`
             : `Start-Process -FilePath '${escapedPath}' -Verb RunAs`
           spawnRunAs(psCmd)
+          console.log(`[launcher] RunAs exe: ${name}`)
         } else {
           spawn(launchPath, args, {
             detached: true,
             stdio: 'ignore',
             windowsHide: false
           }).unref()
+          console.log(`[launcher] spawn exe: ${name}`)
         }
         invalidateProcessCache()
         return { success: true }
