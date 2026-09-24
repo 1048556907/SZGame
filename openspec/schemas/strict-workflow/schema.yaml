@@ -1,0 +1,20 @@
+# openspec/schemas/strict-workflow/schema.yaml
+name: strict-workflow
+version: 1
+description: 强制完整工作流，不允许跳过任何环节
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    requires: []
+  - id: specs
+    generates: specs/*.md
+    requires: [proposal]  # 必须先有提案
+  - id: design
+    generates: design.md
+    requires: [proposal]  # 必须先有提案
+  - id: tasks
+    generates: tasks.md
+    requires: [specs, design]  # 必须先有规范和设计
+apply:
+  requires: [tasks]  # 必须有任务清单才能执行
+  tracks: tasks.md
