@@ -59,7 +59,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "SZGame",
-      "artifactName": "SZGame Setup ${version}.${ext}"
+      "artifactName": "SZGame Setup ${version}.${ext}",
+      "include": "build/installer.nsh"
     }
   }
 }
