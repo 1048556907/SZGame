@@ -44,10 +44,10 @@ Done "Cleaned dist, dist-electron, release"
 
 # --- 3. Bump version ---
 Step "Bump version (patch)"
-$oldVersion = (Get-Content "package.json" | ConvertFrom-Json).version
+$oldVersion = (Get-Content "package.json" -Encoding utf8 | ConvertFrom-Json).version
 npm version patch --no-git-tag-version 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "npm version patch failed" }
-$newVersion = (Get-Content "package.json" | ConvertFrom-Json).version
+$newVersion = (Get-Content "package.json" -Encoding utf8 | ConvertFrom-Json).version
 Done "$oldVersion -> $newVersion"
 
 # --- 4. TypeScript ---
