@@ -1,6 +1,6 @@
 {
   "name": "SZGame",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SZGame — 本地游戏管理盒子",
   "main": "dist-electron/main.js",
   "author": "",
