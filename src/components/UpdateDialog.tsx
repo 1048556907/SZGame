@@ -42,6 +42,7 @@ export default function UpdateDialog({ open, currentVersion, newVersion, onUpdat
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
+      borderRadius: 12, overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}>
       <div style={{

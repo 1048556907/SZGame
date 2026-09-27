@@ -174,6 +174,7 @@ export default function CoverPickerModal({ open, keyword, onClose, onPick }: Pro
                         <div style={{
                           position: 'absolute', inset: 0,
                           background: 'rgba(0,0,0,0.6)',
+                          borderRadius: 8, overflow: 'hidden',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: '#fff', fontSize: 12
                         }}>⬇ 下载中...</div>
