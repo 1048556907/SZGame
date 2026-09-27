@@ -4,17 +4,21 @@ version: 1
 description: 强制完整工作流，不允许跳过任何环节
 artifacts:
   - id: proposal
+    description: 初始提案文档，说明变更动机与范围
     generates: proposal.md
     requires: []
   - id: specs
+    description: 能力规范，描述行为需求
     generates: specs/*.md
-    requires: [proposal]  # 必须先有提案
+    requires: [proposal]
   - id: design
+    description: 技术设计文档，说明实现方案
     generates: design.md
-    requires: [proposal]  # 必须先有提案
+    requires: [proposal]
   - id: tasks
+    description: 实施任务清单，可追踪的 checkbox
     generates: tasks.md
-    requires: [specs, design]  # 必须先有规范和设计
+    requires: [proposal,specs, design]
 apply:
-  requires: [tasks]  # 必须有任务清单才能执行
+  requires: [tasks]
   tracks: tasks.md

@@ -1,5 +1,4 @@
-#schema: spec-driven #默认模式
-schema: strict-workflow #自定义强制完整工作流
+schema: strict-workflow
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.
