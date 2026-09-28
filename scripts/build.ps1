@@ -63,9 +63,9 @@ if ($LASTEXITCODE -ne 0) { Fail "vite build failed" }
 Done "vite build ok"
 
 # --- 6. electron-builder ---
-Step "electron-builder NSIS"
+Step "electron-builder NSIS + AppX"
 $env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
-npx electron-builder --win
+npx electron-builder --win nsis appx
 if ($LASTEXITCODE -ne 0) { Fail "electron-builder failed" }
 Done "electron-builder ok"
 
@@ -75,7 +75,14 @@ $setup = Get-ChildItem "release" -Filter "*.exe" | Where-Object { $_.Name -notli
 if (-not $setup) { Fail "No .exe found in release/" }
 $setup | ForEach-Object {
   $mb = [math]::Round($_.Length / 1MB, 2)
-  Done "$($_.Name)  ($mb MB)"
+  Done "NSIS: $($_.Name)  ($mb MB)"
+}
+
+$appx = Get-ChildItem "release" -Filter "*.appx"
+if (-not $appx) { Fail "No .appx found in release/" }
+$appx | ForEach-Object {
+  $mb = [math]::Round($_.Length / 1MB, 2)
+  Done "AppX: $($_.Name)  ($mb MB)"
 }
 
 Write-Host ""
