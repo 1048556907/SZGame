@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import GameGrid from './components/GameGrid'
 import GroupManager from './components/GroupManager'
@@ -306,7 +306,6 @@ function AppInner() {
               onLaunch={handleLaunch}
               onAddGame={openAddGame}
               onRefresh={refresh}
-              onUpdateGames={setGames}
             />
           )}
           {view === 'groups' && (

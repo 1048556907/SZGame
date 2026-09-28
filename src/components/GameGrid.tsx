@@ -1,8 +1,8 @@
-import { useState, useMemo, useRef } from 'react'
+﻿import { useState, useMemo } from 'react'
 import type { Game, Group } from '../types'
 import { useDebounced } from '../hooks/useDebounced'
 import {
-  DndContext, closestCorners, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   DragOverlay,
   type DragEndEvent, type DragStartEvent
 } from '@dnd-kit/core'
@@ -21,8 +21,6 @@ interface GameGridProps {
   onLaunch: (id: number) => void
   onAddGame: () => void
   onRefresh?: () => void
-  /** 乐观更新：函数式 setter 形式，用于拖拽后先更新本地 state 再异步写 DB */
-  onUpdateGames?: (updater: (prev: Game[]) => Game[]) => void
 }
 
 /** 中文 + 英文混合排序：按名称拼音首字母正序 */
@@ -32,13 +30,10 @@ const nameCollator = new Intl.Collator('zh-CN', {
   numeric: true
 })
 
-/** 统一 easing：ease-out-quart —— 让位/回弹都用这一套 */
-const EASING = 'cubic-bezier(0.25, 1, 0.5, 1)'
-
 /** 卡片网格 —— global_order 为唯一真相源，所有视图统一排序 */
 export default function GameGrid({
   games, currentGroup, searchQuery, groups,
-  onOpenGame, onLaunch, onAddGame, onRefresh, onUpdateGames
+  onOpenGame, onLaunch, onAddGame, onRefresh
 }: GameGridProps) {
 
   const debouncedSearch = useDebounced(searchQuery, 300)
@@ -48,11 +43,8 @@ export default function GameGrid({
   const [activeGameId, setActiveGameId] = useState<number | null>(null)
   const activeGame = activeGameId != null ? games.find(g => g.id === activeGameId) : null
 
-  // 乐观更新用：保留 games 快照，回滚时用
-  const gamesSnapshotRef = useRef<Game[] | null>(null)
-
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
 
   // 统一排序：global_order 升序 → created_at 倒序 → name 拼音正序
@@ -79,12 +71,12 @@ export default function GameGrid({
   }, [games, currentGroup, debouncedSearch, searchActive])
 
   const handleDragStart = (event: DragStartEvent) => {
-    // 保存拖拽前的快照，用于回滚
-    gamesSnapshotRef.current = games
     setActiveGameId(event.active.id as number)
   }
 
-  // 拖拽结束：统一更新 global_order → 乐观更新 + 异步持久化 + 失败回滚
+  // 拖拽结束：统一更新 global_order → 所有视图自动继承新顺序
+  // 关键：在分组视图拖拽只移动同组游戏的相对位置，其他分组的 global_order 保持不变
+  //       但必须给完整列表重编号，否则会和其他分组冲突
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveGameId(null)
@@ -114,29 +106,10 @@ export default function GameGrid({
     // 4. 给完整列表重新编号 global_order = 0..N-1
     const items = fullList.map((g: Game, i: number) => ({ id: g.id, global_order: i }))
 
-    // 5. 乐观更新 —— 先把新 global_order 灌进本地 state（UI 立即响应）
-    if (onUpdateGames) {
-      onUpdateGames(prev => {
-        const updated = new Map(items.map(i => [i.id, i.global_order]))
-        return prev.map(g => updated.has(g.id) ? { ...g, global_order: updated.get(g.id)! } : g)
-      })
-    }
-
-    // 6. 异步写 DB —— 成功则 refresh 确认，失败则回滚
     try {
       await window.electronAPI?.gamesReorder(items)
       onRefresh?.()
-    } catch {
-      // 回滚到拖拽前的快照
-      if (onUpdateGames && gamesSnapshotRef.current) {
-        onUpdateGames(() => gamesSnapshotRef.current!)
-      } else {
-        onRefresh?.()
-      }
-      console.error('[GameGrid] 排序保存失败')
-    } finally {
-      gamesSnapshotRef.current = null
-    }
+    } catch { /* 静默失败 */ }
   }
 
   const groupName = currentGroup === 'all'
@@ -175,7 +148,7 @@ export default function GameGrid({
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={closestCenter}
           modifiers={[restrictToWindowEdges]}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -192,18 +165,9 @@ export default function GameGrid({
               ))}
             </div>
           </SortableContext>
-          <DragOverlay
-            dropAnimation={{
-              duration: 250,
-              easing: EASING
-            }}
-          >
+          <DragOverlay dropAnimation={null}>
             {activeGame ? (
-              <div style={{
-                transform: 'scale(1.05) rotate(-1deg)',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
-                borderRadius: 16
-              }}>
+              <div style={{ transform: 'scale(1.02)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
                 <GameCard game={activeGame} onOpen={() => {}} onLaunch={() => {}} isDragging />
               </div>
             ) : null}
@@ -232,18 +196,9 @@ function SortableGameCard({ game, onOpen, onLaunch }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: game.id })
 
-  // 显式覆盖 transition：200ms ease-out-quart，让位动画流畅统一
-  // dnd-kit CSS.Transition 接口要求指定 property，我们覆盖 transform 属性的过渡
-  const sortableTransition = CSS.Transition.toString({
-    property: 'transform',
-    duration: 200,
-    easing: EASING
-  })
-
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    // dnd-kit 内部 transition（让位时）+ 我们显式的 override 合并取更长的那个
-    transition: transition ?? sortableTransition,
+    transition,
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 10 : 'auto'
   }
@@ -285,11 +240,7 @@ function GameCard({ game, onOpen, onLaunch, isDragging }: {
         border: `1px solid ${isHover ? 'var(--accent)' : 'var(--border)'}`,
         borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
         transform: isHover ? 'translateY(-3px)' : 'translateY(0)',
-        // 拖拽中只禁用 transform/box-shadow/background transition，保留 border-color 自然过渡
-        // 不再硬切 'none' —— 改为更短的淡出让过渡曲线保持连贯
-        transition: isDragging
-          ? 'border-color 120ms linear, background 120ms linear'
-          : 'transform 0.2s, box-shadow 0.2s, border-color 0.2s, background 0.2s',
+        transition: isDragging ? 'none' : 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
         boxShadow: isHover && !isDragging ? '0 8px 24px rgba(0,0,0,0.5)' : 'none'
       }}
     >
