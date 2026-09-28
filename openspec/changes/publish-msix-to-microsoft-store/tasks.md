@@ -26,4 +26,4 @@
 - [x] 4.1 运行完整构建：NSIS `.exe`（93MB）+ AppX `.appx`（128MB）全部成功产出至 `release2/`（旧 release 目录文件锁问题，换输出目录绕过）
 - [x] 4.2 AppX manifest 精确验证：Identity Name=`10DFD687.SZGame` ✅、Publisher=`CN=BDA47175-C8A4-48DB-A24B-A36B178DC7F8` ✅、Properties.PublisherDisplayName=`博学浮生` ✅、Capabilities 含 `runFullTrust` ✅、MinVersion=`10.0.17763.0` ✅
 - [x] 4.3 运行 `openspec validate --all` 确认所有 spec 和 change 状态有效，无校验错误（6 项全绿，change/publish-msix-to-microsoft-store 通过）
-- [ ] 4.4 创建 Git commit：message 描述新增 AppX 打包格式、修改文件列表（package.json、build/appx/*.png、electron/updater.ts）；推送至 origin/main
+- [x] 4.4 创建 Git commit：45b7755 `build: add AppX target for Microsoft Store compatibility`，11 files changed，推送至 origin/main
