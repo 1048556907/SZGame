@@ -75,17 +75,36 @@ export default function GameGrid({
   }
 
   // 拖拽结束：统一更新 global_order → 所有视图自动继承新顺序
+  // 关键：在分组视图拖拽只移动同组游戏的相对位置，其他分组的 global_order 保持不变
+  //       但必须给完整列表重编号，否则会和其他分组冲突
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveGameId(null)
     if (!over || active.id === over.id) return
 
+    // 1. 在**可视列表**（可能是过滤后的分组视图）里确定拖拽位置
     const oldIndex = sortedList.findIndex(g => g.id === active.id)
     const newIndex = sortedList.findIndex(g => g.id === over.id)
     if (oldIndex < 0 || newIndex < 0) return
 
-    const reordered = arrayMove(sortedList, oldIndex, newIndex)
-    const items = reordered.map((g: Game, i: number) => ({ id: g.id, global_order: i }))
+    // 2. 对可视子集做 arrayMove → 得到子集的新顺序
+    const reorderedSubset = arrayMove(sortedList, oldIndex, newIndex)
+    const subsetIds = new Set(sortedList.map(g => g.id))
+
+    // 3. 重建完整列表：按原 global_order 排列，但把子集元素按新顺序放回原位
+    const fullList = [...games].sort((a, b) => (a.global_order ?? 0) - (b.global_order ?? 0))
+    // 记录子集元素在 fullList 中的位置（按原 global_order 升序）
+    const subsetPositionsInFull: number[] = []
+    for (let i = 0; i < fullList.length; i++) {
+      if (subsetIds.has(fullList[i].id)) subsetPositionsInFull.push(i)
+    }
+    // 用新顺序替换原位置上的元素
+    for (let i = 0; i < subsetPositionsInFull.length; i++) {
+      fullList[subsetPositionsInFull[i]] = reorderedSubset[i]
+    }
+
+    // 4. 给完整列表重新编号 global_order = 0..N-1
+    const items = fullList.map((g: Game, i: number) => ({ id: g.id, global_order: i }))
 
     try {
       await window.electronAPI?.gamesReorder(items)
