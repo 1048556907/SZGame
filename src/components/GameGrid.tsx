@@ -188,7 +188,7 @@ export default function GameGrid({
               ))}
             </div>
           </SortableContext>
-          <DragOverlay dropAnimation={null}>
+          <DragOverlay dropAnimation={{ duration: 250, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' }}>
             {activeGame ? (
               <div style={{ transform: 'scale(1.02)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
                 <GameCard game={activeGame} onOpen={() => {}} onLaunch={() => {}} isDragging />
