@@ -30,7 +30,7 @@ const nameCollator = new Intl.Collator('zh-CN', {
   numeric: true
 })
 
-/** 卡片网格 —— sort_order（分组内）/ global_order（全部视图）优先级最高，可拖拽排序 */
+/** 卡片网格 —— global_order 为唯一真相源，所有视图统一排序 */
 export default function GameGrid({
   games, currentGroup, searchQuery, groups,
   onOpenGame, onLaunch, onAddGame, onRefresh
@@ -38,7 +38,6 @@ export default function GameGrid({
 
   const debouncedSearch = useDebounced(searchQuery, 300)
   const searchActive = !!debouncedSearch.trim()
-  const isAllView = currentGroup === 'all'
 
   // 当前正在拖拽的游戏（用于 DragOverlay）
   const [activeGameId, setActiveGameId] = useState<number | null>(null)
@@ -48,22 +47,20 @@ export default function GameGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
 
-  // 前端排序：按视图选优先级字段
-  // 全部视图 → global_order；具体分组视图 → sort_order
-  // 次级排序：created_at 倒序 + name 拼音正序（无有效 order 时 fallback）
+  // 统一排序：global_order 升序 → created_at 倒序 → name 拼音正序
+  // 分组视图自动继承"全部"视图的顺序（因为用同一个 global_order 字段）
   const sortedList = useMemo(() => {
     let list = [...games]
-    if (!isAllView) list = list.filter(g => g.group_id === currentGroup)
+    if (currentGroup !== 'all') list = list.filter(g => g.group_id === currentGroup)
     if (searchActive) {
       const q = debouncedSearch.trim().toLowerCase()
       list = list.filter(g => g.name.toLowerCase().includes(q))
     }
 
-    const orderField = isAllView ? 'global_order' : 'sort_order'
-    const hasOrder = list.some(g => (g[orderField] ?? 0) !== 0)
+    const hasGlobalOrder = list.some(g => (g.global_order ?? 0) !== 0)
     list.sort((a, b) => {
-      if (hasOrder) {
-        const oCmp = (a[orderField] ?? 0) - (b[orderField] ?? 0)
+      if (hasGlobalOrder) {
+        const oCmp = (a.global_order ?? 0) - (b.global_order ?? 0)
         if (oCmp !== 0) return oCmp
       }
       const timeCmp = (b.created_at ?? '').localeCompare(a.created_at ?? '')
@@ -71,13 +68,13 @@ export default function GameGrid({
       return nameCollator.compare(a.name, b.name)
     })
     return list
-  }, [games, currentGroup, debouncedSearch, searchActive, isAllView])
+  }, [games, currentGroup, debouncedSearch, searchActive])
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveGameId(event.active.id as number)
   }
 
-  // 拖拽结束：全部视图更新 global_order，具体分组视图更新 sort_order
+  // 拖拽结束：统一更新 global_order → 所有视图自动继承新顺序
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveGameId(null)
@@ -88,16 +85,15 @@ export default function GameGrid({
     if (oldIndex < 0 || newIndex < 0) return
 
     const reordered = arrayMove(sortedList, oldIndex, newIndex)
-    const mode: 'per-group' | 'global' = isAllView ? 'global' : 'per-group'
-    const items = reordered.map((g: Game, i: number) => ({ id: g.id, order: i }))
+    const items = reordered.map((g: Game, i: number) => ({ id: g.id, global_order: i }))
 
     try {
-      await window.electronAPI?.gamesReorder(mode, items)
+      await window.electronAPI?.gamesReorder(items)
       onRefresh?.()
     } catch { /* 静默失败 */ }
   }
 
-  const groupName = isAllView
+  const groupName = currentGroup === 'all'
     ? '全部游戏'
     : groups.find(gr => gr.id === currentGroup)?.name ?? '未知分组'
 

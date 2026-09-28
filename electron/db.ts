@@ -267,7 +267,6 @@ export interface GameCreateInput {
 export function listGames(opts?: {
   groupId?: number | null
   search?: string
-  sortBy?: 'per-group' | 'global'
 }): GameRow[] {
   const clauses: string[] = []
   const params: any[] = []
@@ -282,11 +281,8 @@ export function listGames(opts?: {
   }
 
   const where = clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''
-  // 全部视图用 global_order，具体分组视图用 sort_order
-  const orderBy = opts?.sortBy === 'global'
-    ? 'ORDER BY global_order ASC, id ASC'
-    : 'ORDER BY sort_order ASC, id ASC'
-  const sql = `SELECT * FROM games ${where} ${orderBy}`
+  // global_order 是唯一真相源 —— 全部视图和分组视图都按它排序
+  const sql = `SELECT * FROM games ${where} ORDER BY global_order ASC, id ASC`
   const stmt = getDB().prepare(sql)
   params.forEach(p => stmt.bind([p]))
   const rows: GameRow[] = []
@@ -299,10 +295,8 @@ export function createGame(input: GameCreateInput): number {
   const { name, launch_path, launch_type, launch_args = '', cover_image = null, needs_admin = false, group_id } = input
   getDB().run(
     `INSERT INTO games (name, launch_path, launch_type, launch_args, cover_image, needs_admin, group_id, sort_order, global_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?,
-       (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM games WHERE group_id = ?),
-       (SELECT COALESCE(MAX(global_order), -1) + 1 FROM games))`,
-    [name, launch_path, launch_type, launch_args, cover_image, needs_admin ? 1 : 0, group_id, group_id]
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, (SELECT COALESCE(MAX(global_order), -1) + 1 FROM games))`,
+    [name, launch_path, launch_type, launch_args, cover_image, needs_admin ? 1 : 0, group_id]
   )
   save()
   return getDB().exec('SELECT last_insert_rowid()')[0].values[0][0] as number
@@ -335,17 +329,15 @@ export function deleteGame(id: number): GameRow | null {
 }
 
 /**
- * 重排序游戏 —— 支持 per-group 和 global 两种模式
- * @param mode 'per-group' → 更新 sort_order；'global' → 更新 global_order
+ * 重排序游戏 —— 统一更新 global_order（唯一真相源）
+ * sort_order 列保留 schema 兼容，但不再读写
  */
 export function reorderGames(
-  mode: 'per-group' | 'global',
-  items: { id: number; order: number }[]
+  items: { id: number; global_order: number }[]
 ): void {
-  const col = mode === 'global' ? 'global_order' : 'sort_order'
-  const stmt = getDB().prepare(`UPDATE games SET ${col} = ? WHERE id = ?`)
+  const stmt = getDB().prepare('UPDATE games SET global_order = ? WHERE id = ?')
   getDB().run('BEGIN')
-  for (const it of items) stmt.run([it.order, it.id])
+  for (const it of items) stmt.run([it.global_order, it.id])
   getDB().run('COMMIT')
   stmt.free()
   save()
