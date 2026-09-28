@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import type { Game, Group } from '../types'
 import { useDebounced } from '../hooks/useDebounced'
 import {
@@ -21,6 +21,8 @@ interface GameGridProps {
   onLaunch: (id: number) => void
   onAddGame: () => void
   onRefresh?: () => void
+  /** 乐观更新：函数式 setter 形式，拖拽后先更新本地 state 再异步写 DB */
+  onUpdateGames?: (updater: (prev: Game[]) => Game[]) => void
 }
 
 /** 中文 + 英文混合排序：按名称拼音首字母正序 */
@@ -33,7 +35,7 @@ const nameCollator = new Intl.Collator('zh-CN', {
 /** 卡片网格 —— global_order 为唯一真相源，所有视图统一排序 */
 export default function GameGrid({
   games, currentGroup, searchQuery, groups,
-  onOpenGame, onLaunch, onAddGame, onRefresh
+  onOpenGame, onLaunch, onAddGame, onRefresh, onUpdateGames
 }: GameGridProps) {
 
   const debouncedSearch = useDebounced(searchQuery, 300)
@@ -42,6 +44,9 @@ export default function GameGrid({
   // 当前正在拖拽的游戏（用于 DragOverlay）
   const [activeGameId, setActiveGameId] = useState<number | null>(null)
   const activeGame = activeGameId != null ? games.find(g => g.id === activeGameId) : null
+
+  // 乐观更新用：保留 games 快照，回滚时用
+  const gamesSnapshotRef = useRef<Game[] | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -71,12 +76,12 @@ export default function GameGrid({
   }, [games, currentGroup, debouncedSearch, searchActive])
 
   const handleDragStart = (event: DragStartEvent) => {
+    // 保存拖拽前的快照，用于回滚
+    gamesSnapshotRef.current = games
     setActiveGameId(event.active.id as number)
   }
 
-  // 拖拽结束：统一更新 global_order → 所有视图自动继承新顺序
-  // 关键：在分组视图拖拽只移动同组游戏的相对位置，其他分组的 global_order 保持不变
-  //       但必须给完整列表重编号，否则会和其他分组冲突
+  // 拖拽结束：统一更新 global_order → 乐观更新 + 异步持久化 + 失败回滚
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveGameId(null)
@@ -106,10 +111,28 @@ export default function GameGrid({
     // 4. 给完整列表重新编号 global_order = 0..N-1
     const items = fullList.map((g: Game, i: number) => ({ id: g.id, global_order: i }))
 
+    // 5. 乐观更新 —— 先把新 global_order 灌进本地 state（UI 立即响应）
+    if (onUpdateGames) {
+      onUpdateGames(prev => {
+        const updated = new Map(items.map(i => [i.id, i.global_order]))
+        return prev.map(g => updated.has(g.id) ? { ...g, global_order: updated.get(g.id)! } : g)
+      })
+    }
+
+    // 6. 异步写 DB —— 成功则 refresh 确认，失败则回滚
     try {
       await window.electronAPI?.gamesReorder(items)
       onRefresh?.()
-    } catch { /* 静默失败 */ }
+    } catch {
+      if (onUpdateGames && gamesSnapshotRef.current) {
+        onUpdateGames(() => gamesSnapshotRef.current!)
+      } else {
+        onRefresh?.()
+      }
+      console.error('[GameGrid] 排序保存失败')
+    } finally {
+      gamesSnapshotRef.current = null
+    }
   }
 
   const groupName = currentGroup === 'all'
