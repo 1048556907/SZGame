@@ -49,10 +49,8 @@ export default function GameGrid({
   const gamesSnapshotRef = useRef<Game[] | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
-
-  const EASING = 'cubic-bezier(0.25, 1, 0.5, 1)'
 
   // 统一排序：global_order 升序 → created_at 倒序 → name 拼音正序
   // 分组视图自动继承"全部"视图的顺序（因为用同一个 global_order 字段）
@@ -190,7 +188,7 @@ export default function GameGrid({
               ))}
             </div>
           </SortableContext>
-          <DragOverlay dropAnimation={{ duration: 250, easing: EASING }}>
+          <DragOverlay dropAnimation={null}>
             {activeGame ? (
               <div style={{ transform: 'scale(1.02)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
                 <GameCard game={activeGame} onOpen={() => {}} onLaunch={() => {}} isDragging />
