@@ -281,7 +281,7 @@ ipcMain.handle('db:groups:reorder', (_e, items: { id: number; sort_order: number
 })
 
 // —— Games ——
-ipcMain.handle('db:games:list', (_e, opts?: { groupId?: number | null; search?: string }) => listGames(opts))
+ipcMain.handle('db:games:list', (_e, opts?: { groupId?: number | null; search?: string; sortBy?: 'per-group' | 'global' }) => listGames(opts))
 ipcMain.handle('db:games:create', (_e, input: GameCreateInput) => {
   try { return { ok: true, id: createGame(input) } }
   catch (e: any) { return { ok: false, error: e.message } }
@@ -294,8 +294,8 @@ ipcMain.handle('db:games:delete', (_e, id: number) => {
   if (row?.cover_image) initCoverManager(DATA_DIR) // 确保已初始化
   return { ok: true }
 })
-ipcMain.handle('db:games:reorder', (_e, groupId: number | null, items: { id: number; sort_order: number }[]) => {
-  reorderGames(groupId, items); return { ok: true }
+ipcMain.handle('db:games:reorder', (_e, mode: 'per-group' | 'global', items: { id: number; order: number }[]) => {
+  reorderGames(mode, items); return { ok: true }
 })
 
 // —— Launcher ——

@@ -21,11 +21,11 @@ export interface SZGameAPI {
   groupsReorder: (items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
 
   // games
-  gamesList: (opts?: { groupId?: number | null; search?: string }) => Promise<any[]>
+  gamesList: (opts?: { groupId?: number | null; search?: string; sortBy?: 'per-group' | 'global' }) => Promise<any[]>
   gamesCreate: (input: any) => Promise<{ ok: boolean; id?: number; error?: string }>
   gamesUpdate: (id: number, input: any) => Promise<{ ok: boolean }>
   gamesDelete: (id: number) => Promise<{ ok: boolean }>
-  gamesReorder: (groupId: number | null, items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
+  gamesReorder: (mode: 'per-group' | 'global', items: { id: number; order: number }[]) => Promise<{ ok: boolean }>
 
   // launcher
   launch: (gameId: number) => Promise<{ success: boolean; message?: string }>
@@ -91,7 +91,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gamesCreate:       (i) => ipcRenderer.invoke('db:games:create', i),
   gamesUpdate:       (i, p) => ipcRenderer.invoke('db:games:update', i, p),
   gamesDelete:       (i) => ipcRenderer.invoke('db:games:delete', i),
-  gamesReorder:      (g, it) => ipcRenderer.invoke('db:games:reorder', g, it),
+  gamesReorder:      (m, it) => ipcRenderer.invoke('db:games:reorder', m, it),
 
   launch:            (id) => ipcRenderer.invoke('launcher:launch', id),
 

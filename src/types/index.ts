@@ -14,6 +14,7 @@ export interface Game {
   needs_admin?: boolean
   group_id: number | null
   sort_order: number
+  global_order: number
   created_at: string
   updated_at: string
 }
@@ -58,11 +59,11 @@ declare global {
       groupsReorder: (items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
 
       // games
-      gamesList: (opts?: { groupId?: number | null; search?: string }) => Promise<Game[]>
-      gamesCreate: (input: Omit<Game, 'id' | 'created_at' | 'updated_at' | 'sort_order'>) => Promise<{ ok: boolean; id?: number; error?: string }>
+      gamesList: (opts?: { groupId?: number | null; search?: string; sortBy?: 'per-group' | 'global' }) => Promise<Game[]>
+      gamesCreate: (input: Omit<Game, 'id' | 'created_at' | 'updated_at' | 'sort_order' | 'global_order'>) => Promise<{ ok: boolean; id?: number; error?: string }>
       gamesUpdate: (id: number, input: Partial<Omit<Game, 'id' | 'created_at' | 'updated_at'>>) => Promise<{ ok: boolean }>
       gamesDelete: (id: number) => Promise<{ ok: boolean }>
-      gamesReorder: (groupId: number | null, items: { id: number; sort_order: number }[]) => Promise<{ ok: boolean }>
+      gamesReorder: (mode: 'per-group' | 'global', items: { id: number; order: number }[]) => Promise<{ ok: boolean }>
 
       // launcher
       launch: (gameId: number) => Promise<{ success: boolean; message?: string }>

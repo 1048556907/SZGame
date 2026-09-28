@@ -22,7 +22,7 @@ let dbPath: string = ''
 // ============================================================
 
 /** 当前 DB schema 版本 —— 每次加新列/改表升级这个数字 */
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS groups (
@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS games (
   needs_admin INTEGER NOT NULL DEFAULT 0,
   group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  global_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -167,8 +168,13 @@ function runMigrations(fromVersion: number, toVersion: number) {
     ensureColumn('groups', 'icon_image', 'TEXT')
     ensureColumn('games', 'needs_admin', 'INTEGER NOT NULL DEFAULT 0')
   }
-  // 未来迁移：
-  // if (fromVersion < 3) { ... }
+  if (fromVersion < 3) {
+    // v2 → v3：新增 global_order（全部视图独立排序字段）
+    ensureColumn('games', 'global_order', 'INTEGER NOT NULL DEFAULT 0')
+    // 回填：让现有游戏的 global_order = 按 id 递增（首次"全部"视图排序 fallback 到 created_at）
+    getDB().run('UPDATE games SET global_order = id')
+    console.log('[db] migrated: games.global_order backfilled from id')
+  }
 }
 
 // ============================================================
@@ -243,6 +249,7 @@ export interface GameRow {
   needs_admin: number
   group_id: number | null
   sort_order: number
+  global_order: number
   created_at: string
   updated_at: string
 }
@@ -260,6 +267,7 @@ export interface GameCreateInput {
 export function listGames(opts?: {
   groupId?: number | null
   search?: string
+  sortBy?: 'per-group' | 'global'
 }): GameRow[] {
   const clauses: string[] = []
   const params: any[] = []
@@ -274,7 +282,11 @@ export function listGames(opts?: {
   }
 
   const where = clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''
-  const sql = `SELECT * FROM games ${where} ORDER BY sort_order ASC, id ASC`
+  // 全部视图用 global_order，具体分组视图用 sort_order
+  const orderBy = opts?.sortBy === 'global'
+    ? 'ORDER BY global_order ASC, id ASC'
+    : 'ORDER BY sort_order ASC, id ASC'
+  const sql = `SELECT * FROM games ${where} ${orderBy}`
   const stmt = getDB().prepare(sql)
   params.forEach(p => stmt.bind([p]))
   const rows: GameRow[] = []
@@ -286,8 +298,10 @@ export function listGames(opts?: {
 export function createGame(input: GameCreateInput): number {
   const { name, launch_path, launch_type, launch_args = '', cover_image = null, needs_admin = false, group_id } = input
   getDB().run(
-    `INSERT INTO games (name, launch_path, launch_type, launch_args, cover_image, needs_admin, group_id, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM games WHERE group_id = ?))`,
+    `INSERT INTO games (name, launch_path, launch_type, launch_args, cover_image, needs_admin, group_id, sort_order, global_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?,
+       (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM games WHERE group_id = ?),
+       (SELECT COALESCE(MAX(global_order), -1) + 1 FROM games))`,
     [name, launch_path, launch_type, launch_args, cover_image, needs_admin ? 1 : 0, group_id, group_id]
   )
   save()
@@ -320,10 +334,18 @@ export function deleteGame(id: number): GameRow | null {
   return found
 }
 
-export function reorderGames(groupId: number | null, items: { id: number; sort_order: number }[]): void {
-  const stmt = getDB().prepare('UPDATE games SET sort_order = ? WHERE id = ?')
+/**
+ * 重排序游戏 —— 支持 per-group 和 global 两种模式
+ * @param mode 'per-group' → 更新 sort_order；'global' → 更新 global_order
+ */
+export function reorderGames(
+  mode: 'per-group' | 'global',
+  items: { id: number; order: number }[]
+): void {
+  const col = mode === 'global' ? 'global_order' : 'sort_order'
+  const stmt = getDB().prepare(`UPDATE games SET ${col} = ? WHERE id = ?`)
   getDB().run('BEGIN')
-  for (const it of items) stmt.run([it.sort_order, it.id])
+  for (const it of items) stmt.run([it.order, it.id])
   getDB().run('COMMIT')
   stmt.free()
   save()
