@@ -3,8 +3,10 @@ import type { Game, Group } from '../types'
 import { useDebounced } from '../hooks/useDebounced'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-  type DragEndEvent
+  DragOverlay,
+  type DragEndEvent, type DragStartEvent
 } from '@dnd-kit/core'
+import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 import {
   SortableContext, rectSortingStrategy, useSortable, arrayMove
 } from '@dnd-kit/sortable'
@@ -28,78 +30,78 @@ const nameCollator = new Intl.Collator('zh-CN', {
   numeric: true
 })
 
-/** 卡片网格 —— sort_order 优先级最高，可拖拽排序 */
+/** 卡片网格 —— sort_order（分组内）/ global_order（全部视图）优先级最高，可拖拽排序 */
 export default function GameGrid({
   games, currentGroup, searchQuery, groups,
   onOpenGame, onLaunch, onAddGame, onRefresh
 }: GameGridProps) {
 
-  // debounced 搜索值（Sidebar 的 onChange 是即时的，这里延迟 300ms）
   const debouncedSearch = useDebounced(searchQuery, 300)
   const searchActive = !!debouncedSearch.trim()
+  const isAllView = currentGroup === 'all'
 
-  // ── 拖拽传感器 ──
+  // 当前正在拖拽的游戏（用于 DragOverlay）
+  const [activeGameId, setActiveGameId] = useState<number | null>(null)
+  const activeGame = activeGameId != null ? games.find(g => g.id === activeGameId) : null
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
 
+  // 前端排序：按视图选优先级字段
+  // 全部视图 → global_order；具体分组视图 → sort_order
+  // 次级排序：created_at 倒序 + name 拼音正序（无有效 order 时 fallback）
   const sortedList = useMemo(() => {
     let list = [...games]
-    if (currentGroup !== 'all') list = list.filter(g => g.group_id === currentGroup)
+    if (!isAllView) list = list.filter(g => g.group_id === currentGroup)
     if (searchActive) {
       const q = debouncedSearch.trim().toLowerCase()
       list = list.filter(g => g.name.toLowerCase().includes(q))
     }
 
-    // 排序优先级：
-    // 1. sort_order 升序（用户拖拽过的）
-    // 2. created_at 倒序
-    // 3. name 拼音正序
-    //
-    // 当所有 sort_order 均为 0 或 null 时，走后两个的 fallback
-    const hasSortOrder = list.some(g => (g.sort_order ?? 0) !== 0)
+    const orderField = isAllView ? 'global_order' : 'sort_order'
+    const hasOrder = list.some(g => (g[orderField] ?? 0) !== 0)
     list.sort((a, b) => {
-      if (hasSortOrder) {
-        const soCmp = (a.sort_order ?? 0) - (b.sort_order ?? 0)
-        if (soCmp !== 0) return soCmp
+      if (hasOrder) {
+        const oCmp = (a[orderField] ?? 0) - (b[orderField] ?? 0)
+        if (oCmp !== 0) return oCmp
       }
       const timeCmp = (b.created_at ?? '').localeCompare(a.created_at ?? '')
       if (timeCmp !== 0) return timeCmp
       return nameCollator.compare(a.name, b.name)
     })
     return list
-  }, [games, currentGroup, debouncedSearch, searchActive])
+  }, [games, currentGroup, debouncedSearch, searchActive, isAllView])
 
-  // ── 拖拽结束处理 ──
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveGameId(event.active.id as number)
+  }
+
+  // 拖拽结束：全部视图更新 global_order，具体分组视图更新 sort_order
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
+    setActiveGameId(null)
     if (!over || active.id === over.id) return
-    // 双保险：dragEnabled 已保证 !searchActive && currentGroup !== 'all'
-    if (currentGroup === 'all') return
 
     const oldIndex = sortedList.findIndex(g => g.id === active.id)
     const newIndex = sortedList.findIndex(g => g.id === over.id)
     if (oldIndex < 0 || newIndex < 0) return
 
     const reordered = arrayMove(sortedList, oldIndex, newIndex)
-    const items = reordered.map((g: Game, i: number) => ({ id: g.id, sort_order: i }))
+    const mode: 'per-group' | 'global' = isAllView ? 'global' : 'per-group'
+    const items = reordered.map((g: Game, i: number) => ({ id: g.id, order: i }))
 
     try {
-      await window.electronAPI?.gamesReorder(currentGroup, items)
+      await window.electronAPI?.gamesReorder(mode, items)
       onRefresh?.()
-    } catch {
-      // 静默失败 —— 用户看到卡片没动，下次 refresh 会纠正
-    }
+    } catch { /* 静默失败 */ }
   }
 
-  const groupName = currentGroup === 'all'
+  const groupName = isAllView
     ? '全部游戏'
     : groups.find(gr => gr.id === currentGroup)?.name ?? '未知分组'
 
-  // 拖拽仅在具体分组内启用 —— 搜索态和"全部"视图都禁用
-  // （"全部"视图混排不同分组游戏，跨分组拖拽会破坏 per-group sort_order）
-  const dragEnabled = !searchActive && currentGroup !== 'all'
-
+  const dragEnabled = !searchActive
   const title = searchActive ? `搜索：${debouncedSearch}` : groupName
 
   return (
@@ -123,15 +125,19 @@ export default function GameGrid({
           {searchActive ? '未找到匹配的游戏' : '该分组下暂无游戏'}
         </div>
       ) : !dragEnabled ? (
-        // 搜索态 / "全部"视图：不挂载 DndContext，禁用拖拽
         <div style={gridStyle}>
           {sortedList.map(g => (
             <GameCard key={g.id} game={g} onOpen={() => onOpenGame(g)} onLaunch={() => onLaunch(g.id)} />
           ))}
         </div>
       ) : (
-        // 具体分组视图 + 非搜索态：挂载 DndContext + SortableContext，启用拖拽排序
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToWindowEdges]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <SortableContext items={sortedList.map(g => g.id)} strategy={rectSortingStrategy}>
             <div style={gridStyle}>
               {sortedList.map(g => (
@@ -144,6 +150,13 @@ export default function GameGrid({
               ))}
             </div>
           </SortableContext>
+          <DragOverlay dropAnimation={null}>
+            {activeGame ? (
+              <div style={{ transform: 'scale(1.02)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
+                <GameCard game={activeGame} onOpen={() => {}} onLaunch={() => {}} isDragging />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
     </div>
@@ -163,9 +176,6 @@ const addBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6
 }
 
-// ============================================================
-// 可拖拽排序的游戏卡片
-// ============================================================
 function SortableGameCard({ game, onOpen, onLaunch }: {
   game: Game; onOpen: () => void; onLaunch: () => void
 }) {
@@ -174,39 +184,37 @@ function SortableGameCard({ game, onOpen, onLaunch }: {
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 100 : 'auto'
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 10 : 'auto'
   }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <GameCard game={game} onOpen={onOpen} onLaunch={onLaunch} />
+      <GameCard game={game} onOpen={onOpen} onLaunch={onLaunch} isDragging={isDragging} />
     </div>
   )
 }
 
-// ============================================================
-// 游戏卡片（纯展示，可被 SortableGameCard 包裹）
-// ============================================================
-function GameCard({ game, onOpen, onLaunch }: {
-  game: Game; onOpen: () => void; onLaunch: () => void
+function GameCard({ game, onOpen, onLaunch, isDragging }: {
+  game: Game; onOpen: () => void; onLaunch: () => void; isDragging?: boolean
 }) {
   const [hover, setHover] = useState(false)
   const coverUrl = game.cover_image
     ? game.cover_image.startsWith('data:')
-      ? game.cover_image                                              // base64 data URI（最稳方案）
+      ? game.cover_image
       : game.cover_image.startsWith('http')
-        ? game.cover_image                                            // 历史遗留 Steam CDN URL
-        : `szgame://${game.cover_image}`                              // 历史遗留本地文件路径
+        ? game.cover_image
+        : `szgame://${game.cover_image}`
     : null
+
+  const isHover = hover && !isDragging
 
   return (
     <div
       onClick={onOpen}
-      onMouseEnter={() => setHover(true)}
+      onMouseEnter={() => !isDragging && setHover(true)}
       onMouseLeave={() => setHover(false)}
       onMouseDown={(e) => {
-        // 点在按钮或链接上不触发 dnd-kit 拖拽监听
         const t = e.target as HTMLElement
         if (t.tagName === 'BUTTON' || t.closest('button') || t.tagName === 'A') {
           e.stopPropagation()
@@ -214,11 +222,11 @@ function GameCard({ game, onOpen, onLaunch }: {
       }}
       style={{
         background: 'var(--surface-1)',
-        border: `1px solid ${hover ? 'var(--accent)' : 'var(--border)'}`,
+        border: `1px solid ${isHover ? 'var(--accent)' : 'var(--border)'}`,
         borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
-        transform: hover ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-        boxShadow: hover ? '0 8px 24px rgba(0,0,0,0.5)' : 'none'
+        transform: isHover ? 'translateY(-3px)' : 'translateY(0)',
+        transition: isDragging ? 'none' : 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+        boxShadow: isHover && !isDragging ? '0 8px 24px rgba(0,0,0,0.5)' : 'none'
       }}
     >
       <div style={{
@@ -249,7 +257,7 @@ function GameCard({ game, onOpen, onLaunch }: {
         <button onClick={(e) => { e.stopPropagation(); onLaunch() }}
           style={{
             width: '100%', height: 34, borderRadius: 6, border: 'none',
-            background: hover ? 'var(--accent-hover)' : 'var(--accent)',
+            background: isHover ? 'var(--accent-hover)' : 'var(--accent)',
             color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
             transition: 'background 0.15s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
