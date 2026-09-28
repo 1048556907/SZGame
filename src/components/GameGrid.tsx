@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import type { Game, Group } from '../types'
 import { useDebounced } from '../hooks/useDebounced'
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCorners, PointerSensor, useSensor, useSensors,
   DragOverlay,
   type DragEndEvent, type DragStartEvent
 } from '@dnd-kit/core'
@@ -171,7 +171,7 @@ export default function GameGrid({
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={closestCorners}
           modifiers={[restrictToWindowEdges]}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
