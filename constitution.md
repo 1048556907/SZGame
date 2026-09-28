@@ -1,14 +1,19 @@
 ---
-trigger: SinszEPM
+trigger: SZGame
 description: 项目开发宪法 - 最高工程哲学、真理原则与 OpenSpec 工作流纪律，约束所有技术决策与协作边界
 ---
 
 # 项目开发宪法 (Project Constitution)
 
-> **版本：** 1.0  
-> **地位：** 本文件定义本项目的最高工程哲学与协作边界，**始终生效**。它约束 AI 协作的工作方式。  
-> **治理裁决顺序：** constitution.md > AGENTS.md > proposal.md > prd.md > specs/*/spec.md > design.md > design-test.md > tasks.md > 既有代码。  
+> **地位：** 本文件定义本项目的最高工程哲学与协作边界，**始终生效**。它约束 AI 协作的工作方式。
+> 
+> **治理裁决顺序：** constitution.md > AGENTS.md > proposal.md > prd.md > specs/*/spec.md > design.md > design-test.md > tasks.md > 既有代码。
+> 
 > **事实来源顺序：** 业务意图以 `proposal.md` 为变更入口；业务行为以 `prd.md` 与 `specs/*/spec.md` 为唯一事实来源；技术实现以 `design.md` 为唯一事实来源；测试设计以 `design-test.md` 为唯一事实来源；实施清单以 `tasks.md` 为唯一事实来源。代码必须同时服从已评审的业务文档、技术文档与测试设计文档。
+> 
+> **核心红线：** 无论修改多么微小（包括改一个变量名、修一个 typo、加一行日志），都必须严格遵循 OpenSpec 工作流：1. 必须先执行 `/opsx:propose` 或 `/opsx:new` 创建变更；2. 必须生成 `proposal.md`、`specs/`、`design.md`、`tasks.md` 四个制品；3. 必须经人工审查确认提案后，才能执行 `/opsx:apply`；4. 必须执行 `/opsx:verify` 验证实现与规范的一致性；5. 最后执行 `/opsx:archive` 归档。
+> 
+> **禁止事项：** 禁止任何形式的`直接修改代码`行为。无提案，不编码。
 
 ---
 
