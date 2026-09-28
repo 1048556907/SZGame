@@ -245,8 +245,6 @@ function SortableGameCard({ game, onOpen, onLaunch }: {
     // dnd-kit 内部 transition（让位时）+ 我们显式的 override 合并取更长的那个
     transition: transition ?? sortableTransition,
     opacity: isDragging ? 0.3 : 1,
-    transformOrigin: 'center center',
-    scale: isDragging ? 0.97 : 1,
     zIndex: isDragging ? 10 : 'auto'
   }
 
