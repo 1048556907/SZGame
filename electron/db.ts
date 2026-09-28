@@ -169,11 +169,17 @@ function runMigrations(fromVersion: number, toVersion: number) {
     ensureColumn('games', 'needs_admin', 'INTEGER NOT NULL DEFAULT 0')
   }
   if (fromVersion < 3) {
-    // v2 → v3：新增 global_order（全部视图独立排序字段）
+    // v2 → v3：新增 global_order（唯一真相源）
     ensureColumn('games', 'global_order', 'INTEGER NOT NULL DEFAULT 0')
-    // 回填：让现有游戏的 global_order = 按 id 递增（首次"全部"视图排序 fallback 到 created_at）
-    getDB().run('UPDATE games SET global_order = id')
-    console.log('[db] migrated: games.global_order backfilled from id')
+    // 回填：按 group_id → sort_order → id 分配 sequential global_order
+    // 保留用户已有分组内排序习惯，同时给全部视图一个合理的初始顺序
+    getDB().run(`UPDATE games SET global_order = (
+      SELECT seq FROM (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY group_id, sort_order, id) - 1 AS seq
+        FROM games
+      ) WHERE id = games.id
+    )`)
+    console.log('[db] migrated: games.global_order backfilled (ROW_NUMBER over group_id, sort_order, id)')
   }
 }
 
