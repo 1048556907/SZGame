@@ -305,6 +305,7 @@ function AppInner() {
               onOpenGame={openDrawer}
               onLaunch={handleLaunch}
               onAddGame={openAddGame}
+              onRefresh={refresh}
             />
           )}
           {view === 'groups' && (
