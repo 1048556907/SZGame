@@ -238,11 +238,31 @@ import { getSetting } from './db'
 import { app } from 'electron'
 
 /**
+ * 检测当前是否为 MSIX 包安装。
+ * MSIX 包根目录包含 Package.appxmanifest；NSIS 安装目录中不存在此文件。
+ */
+function isMsixInstalled(): boolean {
+  if (!app.isPackaged) return false
+  try {
+    const manifestPath = path.join(app.getAppPath(), '..', 'Package.appxmanifest')
+    return fs.existsSync(manifestPath)
+  } catch {
+    return false
+  }
+}
+
+/**
  * 启动时自动更新入口。
  * 仅在 packaged 模式 + auto.check 开启时执行。
+ * MSIX 安装由 Store 管理更新，自建 updater 自动跳过。
  */
 export async function startAutoUpdateFlow(mainWindow: BrowserWindow | null): Promise<void> {
   if (!app.isPackaged) return
+
+  if (isMsixInstalled()) {
+    console.info('[updater] MSIX installation detected, skipping self-update (Store manages updates)')
+    return
+  }
 
   const autoCheck = getSetting('app.update.auto.check')
   if (autoCheck === 'false') {
