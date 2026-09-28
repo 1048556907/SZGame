@@ -49,7 +49,7 @@ export default function GameGrid({
   const gamesSnapshotRef = useRef<Game[] | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8, tolerance: 5 } })
   )
 
   // 统一排序：global_order 升序 → created_at 倒序 → name 拼音正序
